@@ -1,0 +1,95 @@
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { defaultWorkspaceState } from '../shared/types'
+import {
+  initStateDir,
+  listRecentWorkspaces,
+  loadAppState,
+  loadFileViewState,
+  loadRecentWorkspaces,
+  loadWorkspaceState,
+  saveAppState,
+  saveFileViewState,
+  saveWorkspaceState,
+  touchRecentWorkspace,
+  workspaceHash
+} from './state'
+
+describe('state persistence', () => {
+  let dir: string
+  let wsA: string
+  let wsB: string
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'argus-state-test-'))
+    initStateDir(dir)
+    wsA = join(dir, 'workspace-a')
+    wsB = join(dir, 'workspace-b')
+    mkdirSync(wsA)
+    mkdirSync(wsB)
+  })
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('returns null/empty for missing state', async () => {
+    expect(await loadAppState()).toBeNull()
+    expect(await loadRecentWorkspaces()).toEqual([])
+    expect(await loadWorkspaceState(wsA)).toBeNull()
+  })
+
+  it('round-trips app state', async () => {
+    const state = {
+      windows: [{ workspacePath: wsA, bounds: { x: 0, y: 0, width: 1400, height: 900 } }]
+    }
+    await saveAppState(state)
+    expect(await loadAppState()).toEqual(state)
+  })
+
+  it('upserts recent workspaces most-recent-first and dedups', async () => {
+    await touchRecentWorkspace(wsA)
+    await touchRecentWorkspace(wsB)
+    await touchRecentWorkspace(wsA)
+    const list = await loadRecentWorkspaces()
+    expect(list.map((e) => e.path)).toEqual([wsA, wsB])
+  })
+
+  it('listRecentWorkspaces drops folders that no longer exist', async () => {
+    await touchRecentWorkspace(join(dir, 'does-not-exist'))
+    const list = await listRecentWorkspaces(10)
+    expect(list.map((e) => e.path)).toEqual([wsA, wsB])
+  })
+
+  it('listRecentWorkspaces respects the limit', async () => {
+    const list = await listRecentWorkspaces(1)
+    expect(list).toHaveLength(1)
+    expect(list[0].path).toBe(wsA)
+  })
+
+  it('round-trips workspace state, isolated per workspace', async () => {
+    const stateA = defaultWorkspaceState()
+    stateA.panels.leftWidth = 333
+    stateA.starredFolders = ['app']
+    await saveWorkspaceState(wsA, stateA)
+    expect(await loadWorkspaceState(wsA)).toEqual(stateA)
+    expect(await loadWorkspaceState(wsB)).toBeNull()
+  })
+
+  it('round-trips per-file view state', async () => {
+    await saveFileViewState(wsA, 'src/index.ts', { cursorOffset: 42, scrollTop: 100 })
+    expect(await loadFileViewState(wsA, 'src/index.ts')).toEqual({
+      cursorOffset: 42,
+      scrollTop: 100
+    })
+    expect(await loadFileViewState(wsA, 'src/other.ts')).toBeNull()
+  })
+
+  it('workspaceHash is stable and path-distinct', () => {
+    expect(workspaceHash('/a/b')).toBe(workspaceHash('/a/b'))
+    expect(workspaceHash('/a/b')).not.toBe(workspaceHash('/a/c'))
+    expect(workspaceHash('/a/b')).toMatch(/^[0-9a-f]{32}$/)
+  })
+})

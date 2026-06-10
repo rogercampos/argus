@@ -8,7 +8,8 @@ import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { useEffect, useRef } from 'react'
-import { useRepoStore } from '../store'
+import { argusEditorTheme } from '../editorTheme'
+import { useWorkspaceStore } from '../store'
 
 function languageFor(path: string): Extension[] {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
@@ -40,13 +41,8 @@ function languageFor(path: string): Extension[] {
   }
 }
 
-const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '13px' },
-  '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }
-})
-
 export function EditorPane(): React.JSX.Element {
-  const openedFile = useRepoStore((s) => s.openedFile)
+  const openedFile = useWorkspaceStore((s) => s.openedFile)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -56,26 +52,46 @@ export function EditorPane(): React.JSX.Element {
       {
         key: 'Mod-s',
         run: (view) => {
-          void useRepoStore.getState().saveFile(view.state.doc.toString())
+          void useWorkspaceStore.getState().saveFile(view.state.doc.toString())
           return true
         }
       }
     ])
 
+    const cursorTracker = EditorView.updateListener.of((update) => {
+      if (update.selectionSet || update.docChanged) {
+        const head = update.state.selection.main.head
+        const line = update.state.doc.lineAt(head)
+        useWorkspaceStore.getState().setCursor({
+          line: line.number,
+          col: head - line.from + 1
+        })
+      }
+    })
+
     const view = new EditorView({
       parent: containerRef.current,
       state: EditorState.create({
         doc: openedFile.content,
-        extensions: [basicSetup, saveKeymap, theme, ...languageFor(openedFile.path)]
+        extensions: [
+          basicSetup,
+          saveKeymap,
+          cursorTracker,
+          ...argusEditorTheme,
+          ...languageFor(openedFile.path)
+        ]
       })
     })
 
-    return () => view.destroy()
+    return () => {
+      view.destroy()
+      useWorkspaceStore.getState().setCursor(null)
+    }
   }, [openedFile])
 
   if (!openedFile) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+      <div className="flex h-full items-center justify-center text-[13px] text-fg-dim">
         Select a file to open it
       </div>
     )
@@ -83,10 +99,10 @@ export function EditorPane(): React.JSX.Element {
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <div className="border-b border-neutral-800 px-4 py-1.5 font-mono text-xs text-neutral-400">
+      <div className="border-b border-edge px-4 py-1.5 font-mono text-[11px] text-fg-dim">
         {openedFile.path}
       </div>
-      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden bg-white" />
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden" />
     </div>
   )
 }

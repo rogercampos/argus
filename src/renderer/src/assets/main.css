@@ -1,7 +1,103 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
+
+/* Design tokens (spec 13) — single source of truth for colors and fonts.
+   Components must use these via Tailwind utilities, never hex literals. */
+@theme {
+  --color-shell: #1a2548;
+  --color-shell-top: #2b4580;
+  --color-primary: #272c3a;
+  --color-secondary: #232838;
+  --color-edge: #1a1e2a;
+  --color-fg: #dde1e8;
+  --color-fg-dim: #808898;
+  --color-selection: #383e4c;
+  --color-hover: #2e3445;
+  --color-caret: #528bff;
+  --color-accent: #61afef;
+  --color-error: #e06c75;
+  --color-warning: #e5c07b;
+  --color-success: #98c379;
+  --color-cyanx: #56b6c2;
+  --color-purplex: #c678dd;
+  --color-orangex: #d19a66;
+  --color-button-primary: #50a14f;
+  --color-star: #eab308;
+  --color-git-modified: #6cb6d9;
+  --color-git-added: #50a14f;
+  --color-git-deleted: #ff5266;
+  --color-git-untracked: #5c6370;
+  --color-git-conflicted: #e06c75;
+  --color-git-ignored: #d19a66;
+  --color-excluded: #e06c75;
+  --color-external: #3e2723;
+
+  --font-ui: 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
 
 html,
 body,
 #root {
   height: 100%;
+  overflow: hidden;
+}
+
+/* Theme @pierre/trees (shadow DOM picks up inherited CSS variables) */
+file-tree-container {
+  --trees-bg-override: var(--color-secondary);
+  --trees-bg-muted-override: var(--color-hover);
+  --trees-fg-override: var(--color-fg);
+  --trees-fg-muted-override: var(--color-fg-dim);
+  --trees-selected-bg-override: var(--color-selection);
+  --trees-selected-fg-override: var(--color-fg);
+  --trees-accent-override: var(--color-accent);
+  --trees-border-color-override: var(--color-edge);
+  --trees-search-bg-override: var(--color-primary);
+  --trees-search-fg-override: var(--color-fg);
+  --trees-input-bg-override: var(--color-primary);
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-fg);
+  user-select: none;
+  cursor: default;
+}
+
+/* The signature gradient shell background (spec 13) */
+.shell-gradient {
+  background: linear-gradient(115deg, var(--color-shell-top) 0%, var(--color-shell) 55%);
+}
+
+/* Window drag regions */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+::selection {
+  background: var(--color-selection);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #444a58bb;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!out", "!build"]
+    "includes": ["**", "!out", "!build", "!**/*.css"]
   },
   "formatter": {
     "enabled": true,

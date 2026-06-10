@@ -1,13 +1,13 @@
 import { prepareFileTreeInput } from '@pierre/trees'
 import { FileTree, useFileTree } from '@pierre/trees/react'
 import { useEffect } from 'react'
-import { useRepoStore } from '../store'
+import { useWorkspaceStore } from '../store'
 
 export function Sidebar(): React.JSX.Element {
-  const paths = useRepoStore((s) => s.paths)
-  const gitStatus = useRepoStore((s) => s.gitStatus)
-  const loadingTree = useRepoStore((s) => s.loadingTree)
-  const rootName = useRepoStore((s) => s.rootName)
+  const paths = useWorkspaceStore((s) => s.paths)
+  const gitStatus = useWorkspaceStore((s) => s.gitStatus)
+  const loadingTree = useWorkspaceStore((s) => s.loadingTree)
+  const rootName = useWorkspaceStore((s) => s.rootName)
 
   const { model } = useFileTree({
     paths: [],
@@ -17,8 +17,8 @@ export function Sidebar(): React.JSX.Element {
     icons: 'standard',
     onSelectionChange: (selectedPaths) => {
       const path = selectedPaths[0]
-      if (path && useRepoStore.getState().filePaths.has(path)) {
-        void useRepoStore.getState().openFile(path)
+      if (path && useWorkspaceStore.getState().filePaths.has(path)) {
+        void useWorkspaceStore.getState().openFile(path)
       }
     }
   })
@@ -33,11 +33,11 @@ export function Sidebar(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <span className="truncate text-xs font-semibold uppercase tracking-wider text-neutral-400">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="truncate text-[11px] font-semibold tracking-wider text-fg-dim uppercase">
           {rootName ?? 'No folder open'}
         </span>
-        {loadingTree && <span className="text-xs text-neutral-500">loading…</span>}
+        {loadingTree && <span className="text-[11px] text-fg-dim">loading…</span>}
       </div>
       <div className="min-h-0 flex-1">
         <FileTree model={model} style={{ height: '100%' }} />

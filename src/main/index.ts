@@ -1,70 +1,51 @@
-import { join } from 'node:path'
-import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import icon from '../../resources/icon.png?asset'
-import { gitStatus, listFiles, readFile, writeFile } from './repo'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { app, BrowserWindow } from 'electron'
+import { registerIpcHandlers } from './ipc'
+import { rebuildApplicationMenu } from './menu'
+import { initStateDir } from './state'
+import {
+  markQuitting,
+  openWelcomeWindow,
+  openWorkspaceWindow,
+  persistAppState,
+  restoreSession
+} from './windows'
 
-function createWindow(): void {
-  const mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    show: false,
-    autoHideMenuBar: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    // A second launch routes here; open a folder argument if present
+    const dirArg = argv.slice(1).find((a) => !a.startsWith('-'))
+    if (dirArg) openWorkspaceWindow(dirArg)
+    else openWelcomeWindow()
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  app.whenReady().then(async () => {
+    electronApp.setAppUserModelId('com.argus')
+    initStateDir(app.getPath('userData'))
+
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    registerIpcHandlers()
+    await rebuildApplicationMenu()
+    await restoreSession()
+
+    app.on('activate', () => {
+      // Dock icon click with no windows: show welcome
+      if (BrowserWindow.getAllWindows().length === 0) openWelcomeWindow()
+    })
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
+  app.on('before-quit', () => {
+    markQuitting()
+    void persistAppState()
   })
 
-  if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-}
-
-function registerIpcHandlers(): void {
-  ipcMain.handle('dialog:open-folder', async () => {
-    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
-    return result.canceled ? null : result.filePaths[0]
-  })
-
-  ipcMain.handle('repo:list-files', (_event, root: string) => listFiles(root))
-  ipcMain.handle('repo:git-status', (_event, root: string) => gitStatus(root))
-  ipcMain.handle('file:read', (_event, root: string, relPath: string) => readFile(root, relPath))
-  ipcMain.handle('file:write', (_event, root: string, relPath: string, content: string) =>
-    writeFile(root, relPath, content)
-  )
-}
-
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.argus')
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  registerIpcHandlers()
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  app.on('window-all-closed', () => {
     app.quit()
-  }
-})
+  })
+}

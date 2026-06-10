@@ -26,11 +26,11 @@ repositories (e.g. `~/code/factorial`).
 
 → Spec: [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 
-- [ ] Three-panel layout: file tree left, main editor right (dominant), and a
+- [x] Three-panel layout: file tree left, main editor right (dominant), and a
       full-width bottom panel for searches and their results.
 - [ ] Resizable splits; global search results panel uses a 50/50 horizontal
       split (results list left, live preview editor right).
-- [ ] No draggable/rearrangeable panels — fixed, predictable layout.
+- [x] No draggable/rearrangeable panels — fixed, predictable layout.
 - [ ] Status bar showing the current background task.
 
 ## ⭐ Flagship feature 1: search a string in the whole codebase
@@ -155,11 +155,11 @@ Two core concepts that everything else hangs from:
 **Workspace** — the folder the user opens. The only way to open anything:
 there is no "open one file"; it's always a folder.
 
-- [ ] One workspace per OS window, always. Multiple workspaces can be open at
+- [x] One workspace per OS window, always. Multiple workspaces can be open at
       the same time, each in its own window.
-- [ ] "Open Recent" in the main application menu to reopen recently closed
+- [x] "Open Recent" in the main application menu to reopen recently closed
       workspaces.
-- [ ] Closing every workspace window leaves a minimal welcome window listing
+- [x] Closing every workspace window leaves a minimal welcome window listing
       recently opened workspaces with an easy way to open them (plus an
       "Open Folder" button). Closing that window quits the application.
 - [ ] Per-workspace persistence: open tabs, panel sizes, search tabs, starred
@@ -179,9 +179,9 @@ like factorial contains many projects (some Ruby, some JavaScript, some Rust,
 → Spec: [specs/01-workspace-and-project-model.md](specs/01-workspace-and-project-model.md)
 and [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 
-- [ ] Native macOS menu bar with all commands (no command palette).
+- [x] Native macOS menu bar with all commands (no command palette).
       "Open Folder" always opens a new window. Cmd+Q quits.
-- [ ] Window appears immediately on start; initializations deferred.
+- [x] Window appears immediately on start; initializations deferred.
 
 ## Ruby on Rails niceties
 
@@ -212,9 +212,10 @@ and [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 → Specs: [specs/13-design-system.md](specs/13-design-system.md)
 and [specs/14-keybindings.md](specs/14-keybindings.md)
 
-- [ ] RubyMine-inspired dark design. Inter + JetBrains Mono bundled.
+- [x] RubyMine-inspired dark design. Inter + JetBrains Mono bundled.
       Gradient background shell, tuned editor tab styles, `~` for home dir
-      everywhere, resizable modals.
+      everywhere, resizable modals. *(Editor tab styles + modals land with
+      their features.)*
 - [ ] RubyMine keymap (macOS only). Core bindings (full table in spec 14):
 
   | Shortcut | Action |
@@ -282,3 +283,4 @@ wanted here:
 | --- | --- |
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
+| 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
