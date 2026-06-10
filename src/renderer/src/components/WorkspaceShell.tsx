@@ -1,6 +1,7 @@
+import { copyLineDown, moveLineDown, moveLineUp, toggleComment } from '@codemirror/commands'
 import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
-import { useWorkspaceStore } from '../store'
+import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { EditorPane } from './EditorPane'
 import { Resizer } from './Resizer'
 import { Sidebar } from './Sidebar'
@@ -19,16 +20,46 @@ export function WorkspaceShell(): React.JSX.Element {
   }, [])
 
   const onMenuCommand = useCallback((command: MenuCommand): void => {
-    const { panels, setPanels } = useWorkspaceStore.getState()
+    const state = useWorkspaceStore.getState()
+    const view = activeView()
     switch (command) {
       case 'toggle-file-tree':
-        setPanels({ leftVisible: !panels.leftVisible })
+        state.setPanels({ leftVisible: !state.panels.leftVisible })
         break
       case 'toggle-search-panel':
-        setPanels({ bottomVisible: !panels.bottomVisible })
+        state.setPanels({ bottomVisible: !state.panels.bottomVisible })
         break
       case 'toggle-schema-panel':
-        setPanels({ rightVisible: !panels.rightVisible })
+        state.setPanels({ rightVisible: !state.panels.rightVisible })
+        break
+      case 'save': {
+        const path = activeTabPath()
+        if (path) void documents.save(path)
+        break
+      }
+      case 'save-all':
+        void documents.saveAll()
+        break
+      case 'close-tab':
+        void state.closeTabAt(state.tabs.activeIndex)
+        break
+      case 'next-tab':
+        void state.cycleTabs(1)
+        break
+      case 'previous-tab':
+        void state.cycleTabs(-1)
+        break
+      case 'comment-line':
+        if (view) toggleComment(view)
+        break
+      case 'duplicate-line':
+        if (view) copyLineDown(view)
+        break
+      case 'move-line-up':
+        if (view) moveLineUp(view)
+        break
+      case 'move-line-down':
+        if (view) moveLineDown(view)
         break
       default:
         // Commands for features from later stages are ignored for now

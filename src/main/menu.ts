@@ -98,6 +98,9 @@ export async function rebuildApplicationMenu(): Promise<void> {
         { type: 'separator' },
         item('Toggle Inlay Hints', 'toggle-inlay-hints'),
         { type: 'separator' },
+        item('Next Tab', 'next-tab', 'Cmd+Shift+]'),
+        item('Previous Tab', 'previous-tab', 'Cmd+Shift+['),
+        { type: 'separator' },
         { role: 'toggleDevTools' }
       ]
     },

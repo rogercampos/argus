@@ -89,6 +89,13 @@ export function defaultWorkspaceState(): PersistedWorkspaceState {
   }
 }
 
+// --- File watching ---
+
+export interface WatchEvent {
+  type: 'create' | 'update' | 'delete'
+  relPath: string
+}
+
 // --- Menu commands (main → renderer) ---
 
 export type MenuCommand =
@@ -123,6 +130,8 @@ export type MenuCommand =
   | 'move-line-down'
   | 'toggle-inlay-hints'
   | 'open-settings'
+  | 'next-tab'
+  | 'previous-tab'
 
 // --- The typed API exposed to the renderer ---
 
@@ -134,6 +143,8 @@ export interface ArgusApi {
   openWorkspace(path: string): Promise<void>
   recentWorkspaces(limit: number): Promise<RecentWorkspaceEntry[]>
   onMenuCommand(handler: (command: MenuCommand) => void): () => void
+  startWatching(): Promise<void>
+  onWatchEvents(handler: (events: WatchEvent[]) => void): () => void
 
   // per-workspace persisted state (scoped to this window's workspace)
   loadWorkspaceState(): Promise<PersistedWorkspaceState | null>

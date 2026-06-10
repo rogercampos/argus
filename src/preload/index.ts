@@ -1,6 +1,6 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ArgusApi, MenuCommand, WindowInitData } from '../shared/types'
+import type { ArgusApi, MenuCommand, WatchEvent, WindowInitData } from '../shared/types'
 
 function parseWindowInit(): WindowInitData {
   const workspaceArg = process.argv.find((a) => a.startsWith('--argus-workspace='))
@@ -21,6 +21,14 @@ const api: ArgusApi = {
       handler(command)
     ipcRenderer.on('menu', listener)
     return () => ipcRenderer.removeListener('menu', listener)
+  },
+
+  startWatching: () => ipcRenderer.invoke('watch:start'),
+  onWatchEvents: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, events: WatchEvent[]): void =>
+      handler(events)
+    ipcRenderer.on('watch:events', listener)
+    return () => ipcRenderer.removeListener('watch:events', listener)
   },
 
   loadWorkspaceState: () => ipcRenderer.invoke('workspace:load-state'),

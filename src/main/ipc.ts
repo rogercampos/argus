@@ -9,6 +9,7 @@ import {
   saveFileViewState,
   saveWorkspaceState
 } from './state'
+import { startWatching } from './watcher'
 import { openWorkspaceWindow, workspaceForWindow } from './windows'
 
 export async function showOpenFolderDialog(): Promise<void> {
@@ -49,6 +50,13 @@ export function registerIpcHandlers(): void {
     (event, relPath: string, state: { cursorOffset: number; scrollTop: number }) =>
       saveFileViewState(eventWorkspace(event), relPath, state)
   )
+
+  // file watching (scoped to the window's workspace)
+  ipcMain.handle('watch:start', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window) return startWatching(window, eventWorkspace(event))
+    return undefined
+  })
 
   // repo
   ipcMain.handle('repo:list-files', (_event, root: string) => listFiles(root))
