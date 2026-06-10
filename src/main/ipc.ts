@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { PersistedWorkspaceState } from '../shared/types'
+import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
 import { rebuildApplicationMenu } from './menu'
 import {
   fileExists,
@@ -10,6 +10,7 @@ import {
   writeFile,
   writeFileAbsolute
 } from './repo'
+import { type RunningSearch, replaceAll, runSearch } from './search'
 import {
   listRecentWorkspaces,
   loadFileViewState,
@@ -19,6 +20,9 @@ import {
 } from './state'
 import { startWatching } from './watcher'
 import { openWorkspaceWindow, workspaceForWindow } from './windows'
+
+// one active search per (window, searchId)
+const activeSearches = new Map<string, RunningSearch>()
 
 export async function showOpenFolderDialog(): Promise<void> {
   const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
@@ -73,6 +77,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('file:write', (_event, root: string, relPath: string, content: string) =>
     writeFile(root, relPath, content)
   )
+  // global search (spec 03)
+  ipcMain.handle('search:start', (event, searchId: number, options: SearchOptions) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    const key = `${window.id}:${searchId}`
+    activeSearches.get(key)?.cancel()
+    const search = runSearch(eventWorkspace(event), options, (progress) => {
+      if (!window.isDestroyed()) {
+        window.webContents.send('search:progress', searchId, progress)
+      }
+      if (progress.done) activeSearches.delete(key)
+    })
+    activeSearches.set(key, search)
+  })
+  ipcMain.handle('search:cancel', (event, searchId: number) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    const key = `${window.id}:${searchId}`
+    activeSearches.get(key)?.cancel()
+    activeSearches.delete(key)
+  })
+  ipcMain.handle('search:replace-all', (event, options: SearchOptions, replacement: string) =>
+    replaceAll(eventWorkspace(event), options, replacement)
+  )
+
   ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))
   ipcMain.handle('file:read-abs', (_event, absPath: string) => readFileAbsolute(absPath))
   ipcMain.handle('file:write-abs', (_event, absPath: string, content: string) =>

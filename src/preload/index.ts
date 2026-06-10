@@ -1,6 +1,12 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ArgusApi, MenuCommand, WatchEvent, WindowInitData } from '../shared/types'
+import type {
+  ArgusApi,
+  MenuCommand,
+  SearchProgress,
+  WatchEvent,
+  WindowInitData
+} from '../shared/types'
 
 function parseWindowInit(): WindowInitData {
   const workspaceArg = process.argv.find((a) => a.startsWith('--argus-workspace='))
@@ -41,6 +47,20 @@ const api: ArgusApi = {
   gitStatus: (root) => ipcRenderer.invoke('repo:git-status', root),
   readFile: (root, relPath) => ipcRenderer.invoke('file:read', root, relPath),
   writeFile: (root, relPath, content) => ipcRenderer.invoke('file:write', root, relPath, content),
+  startSearch: (searchId, options) => ipcRenderer.invoke('search:start', searchId, options),
+  cancelSearch: (searchId) => ipcRenderer.invoke('search:cancel', searchId),
+  onSearchProgress: (handler) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      searchId: number,
+      progress: SearchProgress
+    ): void => handler(searchId, progress)
+    ipcRenderer.on('search:progress', listener)
+    return () => ipcRenderer.removeListener('search:progress', listener)
+  },
+  replaceAll: (options, replacement) =>
+    ipcRenderer.invoke('search:replace-all', options, replacement),
+
   fileExists: (absPath) => ipcRenderer.invoke('file:exists', absPath),
   readFileAbsolute: (absPath) => ipcRenderer.invoke('file:read-abs', absPath),
   writeFileAbsolute: (absPath, content) => ipcRenderer.invoke('file:write-abs', absPath, content)

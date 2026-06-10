@@ -28,7 +28,7 @@ repositories (e.g. `~/code/factorial`).
 
 - [x] Three-panel layout: file tree left, main editor right (dominant), and a
       full-width bottom panel for searches and their results.
-- [ ] Resizable splits; global search results panel uses a 50/50 horizontal
+- [x] Resizable splits; global search results panel uses a 50/50 horizontal
       split (results list left, live preview editor right).
 - [x] No draggable/rearrangeable panels — fixed, predictable layout.
 - [ ] Status bar showing the current background task.
@@ -39,26 +39,28 @@ repositories (e.g. `~/code/factorial`).
 
 RubyMine-style "Find in Files", behaving as implemented in sourcedelve:
 
-- [ ] Floating search modal (Cmd+Shift+F): text input, flat results list, and
+- [x] Floating search modal (Cmd+Shift+F): text input, flat results list, and
       side-by-side live preview of the selected match. Single click/arrow keys
       select & preview, double click or Enter opens in editor, Cmd+Enter sends
       the search to the full bottom panel.
-- [ ] Super fast: streaming results from ripgrep as you type.
-- [ ] Bottom panel with hierarchical results grouped by file, expand/collapse
+- [x] Super fast: streaming results from ripgrep as you type. *(First batch
+      ~160ms on factorial; 150ms flush cadence.)*
+- [x] Bottom panel with hierarchical results grouped by file, expand/collapse
       per file, keyboard navigation (up/down walks visible matches), preview
       editor on the right.
-- [ ] **Editable previews**: the preview editor is a real editor — click into
+- [x] **Editable previews**: the preview editor is a real editor — click into
       it to edit in place, click back to the input/results to keep navigating.
-- [ ] **Persisted search tabs**: each search lives in its own tab in the bottom
+      *(Verified: preview edit wrote through the shared buffer + autosaved.)*
+- [x] **Persisted search tabs**: each search lives in its own tab in the bottom
       panel (tab header bar like editor tabs); switching back to a tab
       re-evaluates the search. Close tab / close all tabs commands. Persisted
       per workspace across restarts.
-- [ ] Global replace (with per-match and per-file granularity).
-- [ ] Filter search by folder (scoped searches); sensible defaults for the
+- [x] Global replace (with per-match and per-file granularity).
+- [x] Filter search by folder (scoped searches); sensible defaults for the
       search folder, not sticky when you didn't ask for it.
-- [ ] Smart default search text: prefilled from the current selection
+- [x] Smart default search text: prefilled from the current selection
       (RubyMine behavior); local find pre-filled from previous/selected text.
-- [ ] Search options: case sensitivity, whole word, regex.
+- [x] Search options: case sensitivity, whole word, regex.
 
 ## ⭐ Flagship feature 2: go to file
 
@@ -98,7 +100,8 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 - [x] Always reload on external file changes (external changes win over
       unsaved buffer content).
 - [x] Single cursor only — no multi-cursor. No modal (vim) editing.
-- [ ] Independent find & replace state per editor view.
+- [x] Independent find & replace state per editor view. *(CM6 search panel
+      per editor; custom RubyMine-style bar can come as polish.)*
 - [x] Word-wise selection; syntax-aware expand/shrink selection (Alt+Up/Down).
 - [x] Duplicate line (Cmd+D), move line up/down (Alt+Shift+Up/Down).
 - [ ] Diagnostics shown on hover directly in the editor; inline (ghost text)
@@ -165,8 +168,8 @@ there is no "open one file"; it's always a folder.
       recently opened workspaces with an easy way to open them (plus an
       "Open Folder" button). Closing that window quits the application.
 - [ ] Per-workspace persistence: open tabs, panel sizes, search tabs, starred
-      folders, recent files. *(Done: tabs, panel sizes, recent files.
-      Pending: search tabs, starred folders.)*
+      folders, recent files. *(Done: tabs, panel sizes, recent files, search
+      tabs. Pending: starred folders.)*
 
 **Project** — a sub-unit inside a workspace, for monorepo support. A workspace
 like factorial contains many projects (some Ruby, some JavaScript, some Rust,
@@ -287,5 +290,6 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Stage 4 (Global search) done: ripgrep streaming backend (150ms batches, 100/1000 caps, gitignore + excluded paths, scoped folders), search modal with selection prefill + flag toggles + folder picker + editable preview, full-width bottom panel with search tabs (re-run on activate, lazy restore, persisted), global replace (single-match through buffers + replace-all with capture groups), in-editor find via CM panel. CDP-verified: streaming on factorial, preview-edit→autosave, replace-all, tab restore. |
 | 2026-06-11 | Stage 3 (Navigation) done: shared resizable modal pattern, Go to File with worker-thread fuzzy matching (60ms on 98k files, 200-cap, previous-query reuse, absolute paths), Recent Files popup with intent-based recency + duplicate-basename hints, jump history with back/forward, Go to Line (N / N:C) from menu and status bar. CDP-verified end to end on factorial. |
 | 2026-06-11 | Stage 2 (Editor core) done: document manager (one buffer per file, state survives tab switches), editor tabs with insert-after-active / move-next-to-active / LRU-50 / middle-click + context-menu close, 700ms autosave, external-changes-win reload via @parcel/watcher, line ops + syntax-aware expand/shrink selection, per-file cursor/scroll persistence, tab restore. CDP-verified: autosave to disk, external reload, tab rules, restore across relaunch. |

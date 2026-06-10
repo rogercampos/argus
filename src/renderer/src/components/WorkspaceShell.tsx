@@ -1,12 +1,16 @@
 import { copyLineDown, moveLineDown, moveLineUp, toggleComment } from '@codemirror/commands'
+import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
+import { useSearchStore } from '../searchStore'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
 import { GoToLineModal } from './GoToLineModal'
 import { RecentFilesModal } from './RecentFilesModal'
 import { Resizer } from './Resizer'
+import { SearchModal } from './SearchModal'
+import { SearchPanel } from './SearchPanel'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { TitleBar } from './TitleBar'
@@ -19,7 +23,10 @@ export function WorkspaceShell(): React.JSX.Element {
   const fileError = useWorkspaceStore((s) => s.fileError)
 
   useEffect(() => {
-    void useWorkspaceStore.getState().init()
+    void useWorkspaceStore
+      .getState()
+      .init()
+      .then(() => useSearchStore.getState().init())
   }, [])
 
   const onMenuCommand = useCallback((command: MenuCommand): void => {
@@ -79,6 +86,18 @@ export function WorkspaceShell(): React.JSX.Element {
       case 'jump-forward':
         void state.jumpForward()
         break
+      case 'global-search':
+        useSearchStore.getState().openModal(false)
+        break
+      case 'global-replace':
+        useSearchStore.getState().openModal(true)
+        break
+      case 'find':
+      case 'replace':
+        if (view) {
+          openSearchPanel(view)
+        }
+        break
       default:
         // Commands for features from later stages are ignored for now
         break
@@ -88,12 +107,14 @@ export function WorkspaceShell(): React.JSX.Element {
   useEffect(() => window.api.onMenuCommand(onMenuCommand), [onMenuCommand])
 
   const openModal = useWorkspaceStore((s) => s.openModal)
+  const searchModalOpen = useSearchStore((s) => s.modalOpen)
 
   return (
     <div className="shell-gradient flex h-screen flex-col">
       {openModal === 'go-to-file' && <GoToFileModal />}
       {openModal === 'recent-files' && <RecentFilesModal />}
       {openModal === 'go-to-line' && <GoToLineModal />}
+      {searchModalOpen && <SearchModal />}
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-col px-2 pb-2">
         <div className="flex min-h-0 flex-1">
@@ -165,14 +186,12 @@ export function WorkspaceShell(): React.JSX.Element {
                 })
               }
             />
-            {/* Full-width bottom panel (spec 02); search tabs mount here in stage 4 */}
+            {/* Full-width bottom panel (spec 02) */}
             <section
               style={{ height: panels.bottomHeight }}
               className="shrink-0 overflow-hidden rounded-md border border-edge bg-secondary"
             >
-              <div className="flex h-full items-center justify-center text-[12px] text-fg-dim">
-                Search results will live here
-              </div>
+              <SearchPanel />
             </section>
           </>
         )}

@@ -56,6 +56,10 @@ export interface PersistedWorkspaceState {
   recentFiles: string[]
   starredFolders: string[]
   excludedPaths: string[]
+  searchTabs?: PersistedSearchTab[]
+  activeSearchTab?: number
+  searchOptions?: { caseSensitive: boolean; wholeWord: boolean; regex: boolean }
+  lastSearchPattern?: string
 }
 
 export const DEFAULT_PANEL_LAYOUT: PanelLayoutState = {
@@ -94,6 +98,44 @@ export function defaultWorkspaceState(): PersistedWorkspaceState {
 export interface WatchEvent {
   type: 'create' | 'update' | 'delete'
   relPath: string
+}
+
+// --- Global search (spec 03) ---
+
+export interface SearchOptions {
+  pattern: string
+  caseSensitive: boolean
+  wholeWord: boolean
+  regex: boolean
+  scopeFolder?: string | null
+  excludedPaths?: string[]
+  maxResults?: number
+}
+
+export interface SearchMatch {
+  path: string
+  line: number
+  /** line text, possibly truncated around the match for display */
+  text: string
+  /** offsets into `text` (display) */
+  submatches: { start: number; end: number }[]
+  /** offsets into the ORIGINAL line, for edits */
+  origSubmatches: { start: number; end: number }[]
+}
+
+export interface SearchProgress {
+  matches: SearchMatch[]
+  done: boolean
+  total: number
+  capped: boolean
+}
+
+export interface PersistedSearchTab {
+  pattern: string
+  caseSensitive: boolean
+  wholeWord: boolean
+  regex: boolean
+  scopeFolder: string | null
 }
 
 // --- Menu commands (main → renderer) ---
@@ -163,4 +205,13 @@ export interface ArgusApi {
   fileExists(absPath: string): Promise<boolean>
   readFileAbsolute(absPath: string): Promise<FileReadResult>
   writeFileAbsolute(absPath: string, content: string): Promise<FileWriteResult>
+
+  // global search (streams batches via onSearchProgress)
+  startSearch(searchId: number, options: SearchOptions): Promise<void>
+  cancelSearch(searchId: number): Promise<void>
+  onSearchProgress(handler: (searchId: number, progress: SearchProgress) => void): () => void
+  replaceAll(
+    options: SearchOptions,
+    replacement: string
+  ): Promise<{ filesChanged: number; replacements: number }>
 }

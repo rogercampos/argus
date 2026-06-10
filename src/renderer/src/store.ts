@@ -30,6 +30,7 @@ interface WorkspaceStore {
   activeDocEpoch: number
   openModal: ModalKind
   lastGoToFileQuery: string
+  excludedPaths: string[]
 
   init: () => Promise<void>
   openFile: (relPath: string, options?: { intent?: boolean }) => Promise<void>
@@ -92,9 +93,18 @@ let extensionsForPath: (path: string) => Extension[] = () => []
 export function setExtensionsBuilder(builder: (path: string) => Extension[]): void {
   extensionsForPath = builder
 }
+export function getExtensionsForPath(path: string): Extension[] {
+  return extensionsForPath(path)
+}
 
 let persisted: PersistedWorkspaceState = defaultWorkspaceState()
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Merge feature-owned persisted fields (e.g. search tabs) and schedule a save. */
+export function mergePersisted(partial: Partial<PersistedWorkspaceState>): void {
+  persisted = { ...persisted, ...partial }
+  schedulePersist()
+}
 
 function schedulePersist(): void {
   if (saveTimer) clearTimeout(saveTimer)
@@ -190,6 +200,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   activeDocEpoch: 0,
   openModal: null,
   lastGoToFileQuery: '',
+  excludedPaths: defaultWorkspaceState().excludedPaths,
 
   init: async () => {
     const root = window.api.windowInit.workspacePath
@@ -204,7 +215,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const stored = await window.api.loadWorkspaceState()
     if (stored) {
       persisted = stored
-      set({ panels: stored.panels, recentFiles: stored.recentFiles ?? [] })
+      set({
+        panels: stored.panels,
+        recentFiles: stored.recentFiles ?? [],
+        excludedPaths: stored.excludedPaths ?? defaultWorkspaceState().excludedPaths
+      })
       // Restore tabs without recency side-effects; only the active doc loads
       const tabs = (stored.editor?.openTabs ?? []).map((t) => ({
         path: t.path,
