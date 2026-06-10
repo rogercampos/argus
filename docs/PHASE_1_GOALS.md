@@ -31,7 +31,7 @@ repositories (e.g. `~/code/factorial`).
 - [x] Resizable splits; global search results panel uses a 50/50 horizontal
       split (results list left, live preview editor right).
 - [x] No draggable/rearrangeable panels — fixed, predictable layout.
-- [ ] Status bar showing the current background task.
+- [x] Status bar showing the current background task.
 
 ## ⭐ Flagship feature 1: search a string in the whole codebase
 
@@ -118,7 +118,7 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 - [ ] "Locate current file" button (reveal active editor file in the tree).
 - [ ] Colored file type icons (devicon-style) used consistently across tree,
       modals, and results.
-- [ ] Git status coloring: modified files in blue, gitignored files dimmed,
+- [x] Git status coloring: modified files in blue, gitignored files dimmed,
       untracked/added states visible.
 - [ ] Starred (pinned) top-level folders shown at the top of the tree.
 - [ ] User-configurable excluded paths (hidden from tree and searches).
@@ -145,10 +145,12 @@ Main languages: Ruby, TypeScript/JavaScript, plus shell.
 
 → Spec: [specs/09-git.md](specs/09-git.md)
 
-- [ ] Current branch in the title bar; repo-wide state surfaced (e.g.
+- [x] Current branch in the title bar; repo-wide state surfaced (e.g.
       rebasing).
-- [ ] File status coloring in tree and tabs (see File tree above).
-- [ ] Status updates optimized and deferred — never block the UI on git.
+- [x] File status coloring in tree and tabs (see File tree above).
+- [x] Status updates optimized and deferred — never block the UI on git.
+      *(500ms debounce, targeted rescans, full rescan on .git/.gitignore
+      changes, diff-only pushes to the renderer.)*
 
 ## Workspace & Project model
 
@@ -210,8 +212,9 @@ and [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 
 → Spec: [specs/10-background-tasks.md](specs/10-background-tasks.md)
 
-- [ ] Central UI for pending background tasks; current task in the status bar.
+- [x] Central UI for pending background tasks; current task in the status bar.
 - [ ] Report of slow operations (instrumentation to catch UI-blocking work).
+      *(Main-process slow-op logging in place; viewer UI pending.)*
 
 ## Design & keybindings
 
@@ -290,6 +293,7 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Stage 5 (Git + background tasks) done: GitMonitor with branch/repo-state from .git file reads, deferred initial scan, 500ms-debounced targeted rescans, diff-only updates; branch + state in title bar; background task model (started/progress/finished) with status-bar spinner + tasks popup; replace-all reports progress; slow-op logging. CDP-verified: branch follows checkout live, status diffs on create/delete, task lifecycle during replace-all. |
 | 2026-06-11 | Stage 4 (Global search) done: ripgrep streaming backend (150ms batches, 100/1000 caps, gitignore + excluded paths, scoped folders), search modal with selection prefill + flag toggles + folder picker + editable preview, full-width bottom panel with search tabs (re-run on activate, lazy restore, persisted), global replace (single-match through buffers + replace-all with capture groups), in-editor find via CM panel. CDP-verified: streaming on factorial, preview-edit→autosave, replace-all, tab restore. |
 | 2026-06-11 | Stage 3 (Navigation) done: shared resizable modal pattern, Go to File with worker-thread fuzzy matching (60ms on 98k files, 200-cap, previous-query reuse, absolute paths), Recent Files popup with intent-based recency + duplicate-basename hints, jump history with back/forward, Go to Line (N / N:C) from menu and status bar. CDP-verified end to end on factorial. |
 | 2026-06-11 | Stage 2 (Editor core) done: document manager (one buffer per file, state survives tab switches), editor tabs with insert-after-active / move-next-to-active / LRU-50 / middle-click + context-menu close, 700ms autosave, external-changes-win reload via @parcel/watcher, line ops + syntax-aware expand/shrink selection, per-file cursor/scroll persistence, tab restore. CDP-verified: autosave to disk, external reload, tab rules, restore across relaunch. |

@@ -2,11 +2,22 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ArgusApi,
+  BackgroundTaskUpdate,
+  GitState,
+  GitStatusDiff,
   MenuCommand,
   SearchProgress,
   WatchEvent,
   WindowInitData
 } from '../shared/types'
+
+function makeListener<T>(channel: string) {
+  return (handler: (payload: T) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: T): void => handler(payload)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  }
+}
 
 function parseWindowInit(): WindowInitData {
   const workspaceArg = process.argv.find((a) => a.startsWith('--argus-workspace='))
@@ -30,6 +41,9 @@ const api: ArgusApi = {
   },
 
   startWatching: () => ipcRenderer.invoke('watch:start'),
+  onGitState: makeListener<GitState>('git:state'),
+  onGitStatusDiff: makeListener<GitStatusDiff>('git:status-diff'),
+  onTaskUpdate: makeListener<BackgroundTaskUpdate>('task:update'),
   onWatchEvents: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, events: WatchEvent[]): void =>
       handler(events)

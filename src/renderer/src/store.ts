@@ -1,7 +1,12 @@
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { create } from 'zustand'
-import type { GitStatusEntry, PanelLayoutState, PersistedWorkspaceState } from '../../shared/types'
+import type {
+  GitState,
+  GitStatusEntry,
+  PanelLayoutState,
+  PersistedWorkspaceState
+} from '../../shared/types'
 import { defaultWorkspaceState } from '../../shared/types'
 import { DocumentManager } from './documents'
 import { JumpHistory } from './history'
@@ -18,6 +23,7 @@ interface WorkspaceStore {
   paths: string[]
   filePaths: Set<string>
   gitStatus: GitStatusEntry[]
+  gitState: GitState
   loadingTree: boolean
   fileError: string | null
   panels: PanelLayoutState
@@ -189,6 +195,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   paths: [],
   filePaths: new Set(),
   gitStatus: [],
+  gitState: { isRepo: false, branch: null, state: null },
   loadingTree: false,
   fileError: null,
   panels: defaultWorkspaceState().panels,
@@ -233,6 +240,20 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     }
 
     void window.api.startWatching()
+
+    // Git: branch/state + incremental status diffs (spec 09)
+    window.api.onGitState((gitState) => set({ gitState }))
+    const statusMap = new Map<string, GitStatusEntry['status']>()
+    window.api.onGitStatusDiff((diff) => {
+      for (const [path, status] of Object.entries(diff)) {
+        if (status === null) statusMap.delete(path)
+        else statusMap.set(path, status)
+      }
+      set({
+        gitStatus: [...statusMap.entries()].map(([path, status]) => ({ path, status }))
+      })
+    })
+
     window.api.onWatchEvents((events) => {
       let structureChanged = false
       for (const event of events) {
@@ -251,11 +272,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       if (structureChanged) scheduleTreeRelist()
     })
 
-    const [paths, gitStatus] = await Promise.all([
-      window.api.listFiles(root),
-      window.api.gitStatus(root)
-    ])
-    set({ paths, filePaths: new Set(paths), gitStatus, loadingTree: false })
+    // git statuses arrive from the monitor as diffs; no upfront fetch needed
+    const paths = await window.api.listFiles(root)
+    set({ paths, filePaths: new Set(paths), loadingTree: false })
   },
 
   openFile: async (relPath, options = {}) => {

@@ -93,6 +93,26 @@ export function defaultWorkspaceState(): PersistedWorkspaceState {
   }
 }
 
+// --- Git state (spec 09) ---
+
+export interface GitState {
+  isRepo: boolean
+  branch: string | null
+  state: 'rebasing' | 'merging' | 'cherry-picking' | 'reverting' | null
+}
+
+export type GitStatusDiff = Record<string, GitStatusEntry['status'] | null>
+
+// --- Background tasks (spec 10) ---
+
+export interface BackgroundTaskUpdate {
+  id: number
+  status: 'queued' | 'started' | 'progress' | 'finished'
+  name: string
+  message?: string
+  percentage?: number
+}
+
 // --- File watching ---
 
 export interface WatchEvent {
@@ -187,6 +207,9 @@ export interface ArgusApi {
   onMenuCommand(handler: (command: MenuCommand) => void): () => void
   startWatching(): Promise<void>
   onWatchEvents(handler: (events: WatchEvent[]) => void): () => void
+  onGitState(handler: (state: GitState) => void): () => void
+  onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void
+  onTaskUpdate(handler: (update: BackgroundTaskUpdate) => void): () => void
 
   // per-workspace persisted state (scoped to this window's workspace)
   loadWorkspaceState(): Promise<PersistedWorkspaceState | null>

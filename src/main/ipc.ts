@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
+import { startGitMonitor } from './git'
 import { rebuildApplicationMenu } from './menu'
 import {
   fileExists,
@@ -18,6 +19,7 @@ import {
   saveFileViewState,
   saveWorkspaceState
 } from './state'
+import { startTask, timed } from './tasks'
 import { startWatching } from './watcher'
 import { openWorkspaceWindow, workspaceForWindow } from './windows'
 
@@ -63,11 +65,13 @@ export function registerIpcHandlers(): void {
       saveFileViewState(eventWorkspace(event), relPath, state)
   )
 
-  // file watching (scoped to the window's workspace)
-  ipcMain.handle('watch:start', (event) => {
+  // file watching + git monitoring (scoped to the window's workspace)
+  ipcMain.handle('watch:start', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) return startWatching(window, eventWorkspace(event))
-    return undefined
+    if (!window) return
+    const root = eventWorkspace(event)
+    await startGitMonitor(window, root)
+    await startWatching(window, root)
   })
 
   // repo
@@ -98,8 +102,24 @@ export function registerIpcHandlers(): void {
     activeSearches.get(key)?.cancel()
     activeSearches.delete(key)
   })
-  ipcMain.handle('search:replace-all', (event, options: SearchOptions, replacement: string) =>
-    replaceAll(eventWorkspace(event), options, replacement)
+  ipcMain.handle(
+    'search:replace-all',
+    async (event, options: SearchOptions, replacement: string) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const task = startTask(window, `Replacing "${options.pattern}"`)
+      try {
+        return await timed('replace-all', 10_000, () =>
+          replaceAll(eventWorkspace(event), options, replacement, (done, total, replaced) => {
+            task.progress(
+              `${done}/${total} files (${replaced} replaced)`,
+              Math.round((done / Math.max(1, total)) * 100)
+            )
+          })
+        )
+      } finally {
+        task.finish()
+      }
+    }
   )
 
   ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))

@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
+import { useTasksStore } from '../tasksStore'
 import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
 import { GoToLineModal } from './GoToLineModal'
@@ -23,6 +24,7 @@ export function WorkspaceShell(): React.JSX.Element {
   const fileError = useWorkspaceStore((s) => s.fileError)
 
   useEffect(() => {
+    useTasksStore.getState().init()
     void useWorkspaceStore
       .getState()
       .init()
