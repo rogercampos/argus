@@ -160,4 +160,7 @@ export interface ArgusApi {
   gitStatus(root: string): Promise<GitStatusEntry[]>
   readFile(root: string, relPath: string): Promise<FileReadResult>
   writeFile(root: string, relPath: string, content: string): Promise<FileWriteResult>
+  fileExists(absPath: string): Promise<boolean>
+  readFileAbsolute(absPath: string): Promise<FileReadResult>
+  writeFileAbsolute(absPath: string, content: string): Promise<FileWriteResult>
 }

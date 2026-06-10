@@ -9,7 +9,11 @@ export function StatusBar(): React.JSX.Element {
       {/* Diagnostics summary + background tasks mount here in later stages */}
       <div className="flex-1" />
       {cursor && (
-        <button type="button" className="cursor-pointer hover:text-fg">
+        <button
+          type="button"
+          onClick={() => useWorkspaceStore.getState().setModal('go-to-line')}
+          className="cursor-pointer hover:text-fg"
+        >
           {cursor.line}:{cursor.col}
         </button>
       )}

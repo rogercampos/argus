@@ -1,12 +1,16 @@
 import type { Extension } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import { create } from 'zustand'
 import type { GitStatusEntry, PanelLayoutState, PersistedWorkspaceState } from '../../shared/types'
 import { defaultWorkspaceState } from '../../shared/types'
 import { DocumentManager } from './documents'
+import { JumpHistory } from './history'
 import type { TabsState } from './tabs'
 import { closeOtherTabs, closeTab, cycleTab, MAX_OPEN_TABS, openTab, tabToEvict } from './tabs'
 
 const MAX_RECENT_FILES = 100
+
+export type ModalKind = 'go-to-file' | 'recent-files' | 'go-to-line' | null
 
 interface WorkspaceStore {
   rootPath: string | null
@@ -24,9 +28,18 @@ interface WorkspaceStore {
   recentFiles: string[]
   /** bumped whenever the active document is (re)loaded, to remount the view */
   activeDocEpoch: number
+  openModal: ModalKind
+  lastGoToFileQuery: string
 
   init: () => Promise<void>
   openFile: (relPath: string, options?: { intent?: boolean }) => Promise<void>
+  navigateTo: (
+    path: string,
+    options?: { cursorOffset?: number; line?: number; col?: number; scrollTop?: number }
+  ) => Promise<void>
+  jumpBack: () => Promise<void>
+  jumpForward: () => Promise<void>
+  setModal: (modal: ModalKind) => void
   activateTab: (index: number) => Promise<void>
   closeTabAt: (index: number) => Promise<void>
   closeOthers: (index: number) => Promise<void>
@@ -38,18 +51,41 @@ interface WorkspaceStore {
 
 export const documents = new DocumentManager(
   async (path) => {
+    if (path.startsWith('/')) {
+      const result = await window.api.readFileAbsolute(path)
+      return result.ok ? result.content : null
+    }
     const root = useWorkspaceStore.getState().rootPath
     if (!root) return null
     const result = await window.api.readFile(root, path)
     return result.ok ? result.content : null
   },
   async (path, content) => {
+    if (path.startsWith('/')) {
+      const result = await window.api.writeFileAbsolute(path, content)
+      return result.ok
+    }
     const root = useWorkspaceStore.getState().rootPath
     if (!root) return false
     const result = await window.api.writeFile(root, path, content)
     return result.ok
   }
 )
+
+export const jumpHistory = new JumpHistory()
+
+/** Where the user is right now, for history recording. */
+function currentLocation(): { path: string; cursorOffset: number; scrollTop: number } | null {
+  const path = activeTabPath()
+  if (!path) return null
+  const doc = documents.get(path)
+  const view = activeView()
+  return {
+    path,
+    cursorOffset: doc?.state.selection.main.head ?? 0,
+    scrollTop: view?.scrollDOM.scrollTop ?? 0
+  }
+}
 
 /** Extensions builder injected by EditorPane (theme, language, keymaps). */
 let extensionsForPath: (path: string) => Extension[] = () => []
@@ -152,6 +188,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   dirtyPaths: {},
   recentFiles: [],
   activeDocEpoch: 0,
+  openModal: null,
+  lastGoToFileQuery: '',
 
   init: async () => {
     const root = window.api.windowInit.workspacePath
@@ -207,6 +245,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   openFile: async (relPath, options = {}) => {
     const intent = options.intent ?? true
+    // Deliberate navigation records the departing location (spec 05)
+    if (intent && activeTabPath() && activeTabPath() !== relPath) {
+      const loc = currentLocation()
+      if (loc) jumpHistory.record(loc)
+    }
     const doc = await documents.open(relPath, extensionsForPath(relPath))
     if (!doc) {
       set({ fileError: `${relPath}: cannot open (binary, too large, or unreadable)` })
@@ -301,6 +344,60 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       await get().activateTab(next.activeIndex)
     }
   },
+
+  navigateTo: async (path, options = {}) => {
+    await get().openFile(path, { intent: true })
+    const view = activeView()
+    if (!view) return
+    let offset = options.cursorOffset
+    if (offset === undefined && options.line !== undefined) {
+      const lineNumber = Math.max(1, Math.min(options.line, view.state.doc.lines))
+      const line = view.state.doc.line(lineNumber)
+      const col = options.col !== undefined ? Math.min(options.col - 1, line.length) : 0
+      offset = line.from + col
+    }
+    if (offset !== undefined) {
+      const clamped = Math.min(offset, view.state.doc.length)
+      view.dispatch({
+        selection: { anchor: clamped },
+        effects: EditorView.scrollIntoView(clamped, { y: 'center' })
+      })
+    }
+    if (options.scrollTop !== undefined) {
+      view.scrollDOM.scrollTop = options.scrollTop
+    }
+    view.focus()
+  },
+
+  jumpBack: async () => {
+    const loc = currentLocation()
+    if (!loc) return
+    const target = jumpHistory.back(loc)
+    if (!target) return
+    await get().openFile(target.path, { intent: false })
+    const view = activeView()
+    if (view) {
+      const offset = Math.min(target.cursorOffset, view.state.doc.length)
+      view.dispatch({ selection: { anchor: offset } })
+      view.scrollDOM.scrollTop = target.scrollTop
+      view.focus()
+    }
+  },
+
+  jumpForward: async () => {
+    const target = jumpHistory.forward()
+    if (!target) return
+    await get().openFile(target.path, { intent: false })
+    const view = activeView()
+    if (view) {
+      const offset = Math.min(target.cursorOffset, view.state.doc.length)
+      view.dispatch({ selection: { anchor: offset } })
+      view.scrollDOM.scrollTop = target.scrollTop
+      view.focus()
+    }
+  },
+
+  setModal: (modal) => set({ openModal: modal }),
 
   setPanels: (update) => {
     set({ panels: { ...get().panels, ...update } })

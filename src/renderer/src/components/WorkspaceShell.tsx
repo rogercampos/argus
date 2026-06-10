@@ -3,6 +3,9 @@ import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { EditorPane } from './EditorPane'
+import { GoToFileModal } from './GoToFileModal'
+import { GoToLineModal } from './GoToLineModal'
+import { RecentFilesModal } from './RecentFilesModal'
 import { Resizer } from './Resizer'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
@@ -61,6 +64,21 @@ export function WorkspaceShell(): React.JSX.Element {
       case 'move-line-down':
         if (view) moveLineDown(view)
         break
+      case 'go-to-file':
+        state.setModal('go-to-file')
+        break
+      case 'recent-files':
+        state.setModal('recent-files')
+        break
+      case 'go-to-line':
+        state.setModal('go-to-line')
+        break
+      case 'jump-back':
+        void state.jumpBack()
+        break
+      case 'jump-forward':
+        void state.jumpForward()
+        break
       default:
         // Commands for features from later stages are ignored for now
         break
@@ -69,8 +87,13 @@ export function WorkspaceShell(): React.JSX.Element {
 
   useEffect(() => window.api.onMenuCommand(onMenuCommand), [onMenuCommand])
 
+  const openModal = useWorkspaceStore((s) => s.openModal)
+
   return (
     <div className="shell-gradient flex h-screen flex-col">
+      {openModal === 'go-to-file' && <GoToFileModal />}
+      {openModal === 'recent-files' && <RecentFilesModal />}
+      {openModal === 'go-to-line' && <GoToLineModal />}
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-col px-2 pb-2">
         <div className="flex min-h-0 flex-1">

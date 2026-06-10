@@ -1,7 +1,15 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { PersistedWorkspaceState } from '../shared/types'
 import { rebuildApplicationMenu } from './menu'
-import { gitStatus, listFiles, readFile, writeFile } from './repo'
+import {
+  fileExists,
+  gitStatus,
+  listFiles,
+  readFile,
+  readFileAbsolute,
+  writeFile,
+  writeFileAbsolute
+} from './repo'
 import {
   listRecentWorkspaces,
   loadFileViewState,
@@ -64,5 +72,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('file:read', (_event, root: string, relPath: string) => readFile(root, relPath))
   ipcMain.handle('file:write', (_event, root: string, relPath: string, content: string) =>
     writeFile(root, relPath, content)
+  )
+  ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))
+  ipcMain.handle('file:read-abs', (_event, absPath: string) => readFileAbsolute(absPath))
+  ipcMain.handle('file:write-abs', (_event, absPath: string, content: string) =>
+    writeFileAbsolute(absPath, content)
   )
 }

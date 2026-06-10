@@ -40,7 +40,10 @@ const api: ArgusApi = {
   listFiles: (root) => ipcRenderer.invoke('repo:list-files', root),
   gitStatus: (root) => ipcRenderer.invoke('repo:git-status', root),
   readFile: (root, relPath) => ipcRenderer.invoke('file:read', root, relPath),
-  writeFile: (root, relPath, content) => ipcRenderer.invoke('file:write', root, relPath, content)
+  writeFile: (root, relPath, content) => ipcRenderer.invoke('file:write', root, relPath, content),
+  fileExists: (absPath) => ipcRenderer.invoke('file:exists', absPath),
+  readFileAbsolute: (absPath) => ipcRenderer.invoke('file:read-abs', absPath),
+  writeFileAbsolute: (absPath, content) => ipcRenderer.invoke('file:write-abs', absPath, content)
 }
 
 if (process.contextIsolated) {

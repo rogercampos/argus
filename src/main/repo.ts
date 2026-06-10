@@ -104,6 +104,43 @@ export async function gitStatus(root: string): Promise<GitStatusEntry[]> {
   return entries
 }
 
+export async function fileExists(absPath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(absPath)).isFile()
+  } catch {
+    return false
+  }
+}
+
+/** Read by absolute path (external files, spec 04/06). Same guards as readFile. */
+export async function readFileAbsolute(absPath: string): Promise<FileReadResult> {
+  try {
+    const stat = await fs.stat(absPath)
+    if (stat.size > MAX_FILE_SIZE) {
+      return { ok: false, reason: 'too-large' }
+    }
+    const buffer = await fs.readFile(absPath)
+    if (buffer.subarray(0, 8000).includes(0)) {
+      return { ok: false, reason: 'binary' }
+    }
+    return { ok: true, content: buffer.toString('utf8') }
+  } catch (error) {
+    return { ok: false, reason: 'error', message: String(error) }
+  }
+}
+
+export async function writeFileAbsolute(
+  absPath: string,
+  content: string
+): Promise<FileWriteResult> {
+  try {
+    await fs.writeFile(absPath, content, 'utf8')
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: String(error) }
+  }
+}
+
 export async function readFile(root: string, relPath: string): Promise<FileReadResult> {
   try {
     const abs = safeResolve(root, relPath)

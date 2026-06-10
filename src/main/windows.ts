@@ -150,8 +150,12 @@ export function openWelcomeWindow(): BrowserWindow {
   return window
 }
 
-/** Restore the previous session, or fall back to ARGUS_OPEN / welcome. */
+/** Restore the previous session, or fall back to welcome. ARGUS_OPEN (dev) wins. */
 export async function restoreSession(): Promise<void> {
+  if (process.env.ARGUS_OPEN) {
+    openWorkspaceWindow(process.env.ARGUS_OPEN)
+    return
+  }
   const state = await loadAppState()
   if (state && state.windows.length > 0) {
     for (const entry of state.windows) {
@@ -161,10 +165,6 @@ export async function restoreSession(): Promise<void> {
           : undefined
       openWorkspaceWindow(entry.workspacePath, { bounds, maximized: entry.maximized })
     }
-    return
-  }
-  if (process.env.ARGUS_OPEN) {
-    openWorkspaceWindow(process.env.ARGUS_OPEN)
     return
   }
   openWelcomeWindow()

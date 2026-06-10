@@ -66,25 +66,27 @@ RubyMine-style "Find in Files", behaving as implemented in sourcedelve:
 
 RubyMine-style "Go to File" (Cmd+Shift+O):
 
-- [ ] Floating modal, fuzzy matching over all repo paths, instant on ~100k
-      files (index kept in memory, filtering off the UI thread).
-- [ ] Reuses the previous query when reopened (RubyMine behavior).
-- [ ] Accepts absolute paths (jump straight to any file on disk).
+- [x] Floating modal, fuzzy matching over all repo paths, instant on ~100k
+      files (index kept in memory, filtering off the UI thread). *(Measured:
+      60ms keystroke→rendered results on factorial's 98k files.)*
+- [x] Reuses the previous query when reopened (RubyMine behavior).
+- [x] Accepts absolute paths (jump straight to any file on disk).
 - [ ] Large, comfortable modal size; colored file type icons in results.
+      *(Size done; file icons pending an icon system.)*
 
 ## Navigation
 
 → Spec: [specs/05-navigation.md](specs/05-navigation.md)
 
-- [ ] Recent files popup (Cmd+E): floating modal with fuzzy filename search,
+- [x] Recent files popup (Cmd+E): floating modal with fuzzy filename search,
       keyboard navigation, file icons. Recency updated only on real user
-      intent (not incidental opens).
-- [ ] History of visited files; jump back / jump forward (Cmd+Alt+Left/Right).
-- [ ] Go to line (Cmd+L) as its own modal.
+      intent (not incidental opens). *(File icons pending icon system.)*
+- [x] History of visited files; jump back / jump forward (Cmd+Alt+Left/Right).
+- [x] Go to line (Cmd+L) as its own modal.
 - [ ] Go to symbol as its own modal.
 - [ ] Go to definition (Cmd+B); when there are multiple definitions, show them
       in a results panel. Don't re-center the viewport unnecessarily.
-- [ ] No command palette: features have their own shortcuts/modals, and all
+- [x] No command palette: features have their own shortcuts/modals, and all
       commands are reachable through the native macOS menu bar (File, View,
       Code, Window, Settings, Help).
 
@@ -285,4 +287,5 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Stage 3 (Navigation) done: shared resizable modal pattern, Go to File with worker-thread fuzzy matching (60ms on 98k files, 200-cap, previous-query reuse, absolute paths), Recent Files popup with intent-based recency + duplicate-basename hints, jump history with back/forward, Go to Line (N / N:C) from menu and status bar. CDP-verified end to end on factorial. |
 | 2026-06-11 | Stage 2 (Editor core) done: document manager (one buffer per file, state survives tab switches), editor tabs with insert-after-active / move-next-to-active / LRU-50 / middle-click + context-menu close, 700ms autosave, external-changes-win reload via @parcel/watcher, line ops + syntax-aware expand/shrink selection, per-file cursor/scroll persistence, tab restore. CDP-verified: autosave to disk, external reload, tab rules, restore across relaunch. |
