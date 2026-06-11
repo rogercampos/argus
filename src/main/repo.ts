@@ -78,7 +78,15 @@ export async function gitStatus(root: string): Promise<GitStatusEntry[]> {
   try {
     const result = await trackedExecFile(
       'git',
-      ['-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all'],
+      [
+        '--no-optional-locks',
+        '-C',
+        root,
+        'status',
+        '--porcelain=v1',
+        '-z',
+        '--untracked-files=all'
+      ],
       { maxBuffer: GIT_MAX_BUFFER },
       { kind: 'git', label: 'git status' }
     )

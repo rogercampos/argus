@@ -69,6 +69,9 @@ export async function readBranchAndState(root: string): Promise<Omit<GitState, '
   return { branch, state: null }
 }
 
+/** Above this many pending paths a full rescan is cheaper than a pathspec scan. */
+const MAX_TARGETED_PATHS = 500
+
 export class GitMonitor {
   private windowId: number
   private statuses = new Map<string, GitStatusEntry['status']>()
@@ -78,6 +81,7 @@ export class GitMonitor {
   private timer: ReturnType<typeof setTimeout> | null = null
   private isRepo = false
   private disposed = false
+  private scanning = false
 
   constructor(
     private root: string,
@@ -97,7 +101,10 @@ export class GitMonitor {
     }
     await this.refreshBranch()
     // initial full scan deferred so the tree renders first (spec 09)
-    setTimeout(() => void this.fullRescan(), 300)
+    setTimeout(() => {
+      this.fullRescanPending = true
+      void this.flush()
+    }, 300)
   }
 
   dispose(): void {
@@ -128,17 +135,39 @@ export class GitMonitor {
     this.timer = setTimeout(() => void this.flush(), 500)
   }
 
+  /**
+   * Single-flight: at most one git process per window. A `git status` over a
+   * large repo runs for seconds; work arriving meanwhile coalesces into the
+   * pending sets and is drained in one trailing scan, never in parallel.
+   */
   private async flush(): Promise<void> {
-    const full = this.fullRescanPending
-    const paths = [...this.pendingPaths]
-    this.fullRescanPending = false
-    this.pendingPaths.clear()
+    if (this.scanning) return // the running loop drains whatever accumulates
+    this.scanning = true
+    try {
+      while (!this.disposed && (this.fullRescanPending || this.pendingPaths.size > 0)) {
+        const full = this.fullRescanPending || this.pendingPaths.size > MAX_TARGETED_PATHS
+        const paths = [...this.pendingPaths]
+        this.fullRescanPending = false
+        this.pendingPaths.clear()
 
-    await this.refreshBranch()
-    if (full) {
-      await this.fullRescan()
-    } else if (paths.length > 0) {
-      await this.targetedRescan(paths)
+        const started = Date.now()
+        await this.refreshBranch()
+        if (full) {
+          await this.fullRescan()
+        } else if (paths.length > 0) {
+          await this.targetedRescan(paths)
+        }
+
+        // pace trailing scans by the cost of the last one (≤50% git duty cycle)
+        if (this.fullRescanPending || this.pendingPaths.size > 0) {
+          const elapsed = Date.now() - started
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.min(5000, Math.max(500, elapsed)))
+          )
+        }
+      }
+    } finally {
+      this.scanning = false
     }
   }
 
@@ -152,7 +181,17 @@ export class GitMonitor {
 
   private async runStatus(paths?: string[]): Promise<Map<string, GitStatusEntry['status']> | null> {
     try {
-      const args = ['-C', this.root, 'status', '--porcelain=v1', '-z', '--untracked-files=all']
+      // --no-optional-locks: status must not write .git/index, or the watcher
+      // sees the write and triggers another rescan — a feedback loop
+      const args = [
+        '--no-optional-locks',
+        '-C',
+        this.root,
+        'status',
+        '--porcelain=v1',
+        '-z',
+        '--untracked-files=all'
+      ]
       if (paths && paths.length > 0) args.push('--', ...paths)
       const { stdout } = await trackedExecFile(
         'git',
@@ -166,7 +205,7 @@ export class GitMonitor {
     }
   }
 
-  async fullRescan(): Promise<void> {
+  private async fullRescan(): Promise<void> {
     const next = await this.runStatus()
     if (!next) return
     const diff: Record<string, GitStatusEntry['status'] | null> = {}
@@ -181,7 +220,7 @@ export class GitMonitor {
   }
 
   private async targetedRescan(paths: string[]): Promise<void> {
-    const result = await this.runStatus(paths.slice(0, 500))
+    const result = await this.runStatus(paths)
     if (!result) return
     const diff: Record<string, GitStatusEntry['status'] | null> = {}
     for (const path of paths) {

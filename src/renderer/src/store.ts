@@ -194,15 +194,33 @@ async function saveViewStateFor(path: string): Promise<void> {
 }
 
 let relistTimer: ReturnType<typeof setTimeout> | null = null
+let relistRunning = false
+let relistQueued = false
+
+/** Single-flight: `git ls-files` runs for seconds on huge repos; overlapping
+ * runs coalesce into one trailing relist. */
+async function runTreeRelist(): Promise<void> {
+  if (relistRunning) {
+    relistQueued = true
+    return
+  }
+  relistRunning = true
+  try {
+    do {
+      relistQueued = false
+      const { rootPath } = useWorkspaceStore.getState()
+      if (!rootPath) return
+      const paths = await window.api.listFiles(rootPath)
+      useWorkspaceStore.setState({ paths, filePaths: new Set(paths) })
+    } while (relistQueued)
+  } finally {
+    relistRunning = false
+  }
+}
+
 function scheduleTreeRelist(): void {
   if (relistTimer) clearTimeout(relistTimer)
-  relistTimer = setTimeout(() => {
-    const { rootPath } = useWorkspaceStore.getState()
-    if (!rootPath) return
-    void window.api.listFiles(rootPath).then((paths) => {
-      useWorkspaceStore.setState({ paths, filePaths: new Set(paths) })
-    })
-  }, 1000)
+  relistTimer = setTimeout(() => void runTreeRelist(), 1000)
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
