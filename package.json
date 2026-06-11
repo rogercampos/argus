@@ -8,6 +8,7 @@
     "format": "biome format --write .",
     "lint": "biome check .",
     "test": "vitest run",
+    "build:grammars": "tree-sitter build --wasm node_modules/tree-sitter-ruby -o src/renderer/src/ruby/tree-sitter-ruby.wasm",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
@@ -46,6 +47,7 @@
     "codemirror": "^6.0.2",
     "tailwindcss": "^4.3.0",
     "vscode-languageserver-protocol": "^3.18.0",
+    "web-tree-sitter": "^0.26.9",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -60,6 +62,8 @@
     "electron-vite": "^5.0.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tree-sitter-cli": "^0.26.9",
+    "tree-sitter-ruby": "^0.23.1",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "vitest": "^4.1.8"

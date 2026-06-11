@@ -124,6 +124,40 @@ body {
   background: var(--color-selection) !important;
 }
 
+/* Tree-sitter highlight classes (Ruby; spec 13 palette). Order matters:
+   later rules win when captures nest (e.g. escapes inside strings). */
+.tsh-comment {
+  color: var(--color-fg-dim);
+  font-style: italic;
+}
+.tsh-keyword {
+  color: var(--color-purplex);
+}
+.tsh-type {
+  color: var(--color-cyanx);
+}
+.tsh-function {
+  color: var(--color-accent);
+}
+.tsh-property {
+  color: var(--color-error);
+}
+.tsh-number {
+  color: var(--color-orangex);
+}
+.tsh-string {
+  color: var(--color-success);
+}
+.tsh-symbol {
+  color: var(--color-cyanx);
+}
+.tsh-regex {
+  color: var(--color-warning);
+}
+.tsh-escape {
+  color: var(--color-orangex);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

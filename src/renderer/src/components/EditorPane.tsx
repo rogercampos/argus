@@ -12,10 +12,15 @@ import { useEffect, useRef } from 'react'
 import { argusKeymap } from '../editorKeymap'
 import { argusEditorTheme } from '../editorTheme'
 import { applyDiagnosticsToView, lspExtensions } from '../lsp'
+import { rubyHighlight } from '../ruby/rubyHighlight'
 import { documents, registerActiveView, setExtensionsBuilder, useWorkspaceStore } from '../store'
 import { EditorTabs } from './EditorTabs'
 
+const RUBY_FILE = /\.(rb|rake|gemspec|ru)$|(^|\/)(Gemfile|Rakefile)$/
+
 function languageFor(path: string): Extension[] {
+  // Ruby: tree-sitter highlighting, like sourcedelve (LSP semantic tokens off)
+  if (RUBY_FILE.test(path)) return [rubyHighlight()]
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
   switch (ext) {
     case 'js':
