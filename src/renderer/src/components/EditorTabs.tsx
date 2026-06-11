@@ -29,28 +29,54 @@ export function EditorTabs(): React.JSX.Element | null {
         const active = index === tabs.activeIndex
         const dirty = dirtyPaths[tab.path]
         return (
-          <button
-            type="button"
+          <div
             key={tab.path}
-            onClick={() => void useWorkspaceStore.getState().activateTab(index)}
-            onAuxClick={(e) => {
-              if (e.button === 1) void useWorkspaceStore.getState().closeTabAt(index)
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setMenu({ x: e.clientX, y: e.clientY, tabIndex: index })
-            }}
-            className={`flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 text-[12px] ${
+            className={`group flex h-full shrink-0 items-center border-b-2 ${
               active
                 ? 'border-caret bg-primary text-white'
                 : 'border-transparent text-fg-dim hover:text-fg'
             } ${tab.external ? 'bg-external' : ''}`}
-            title={tab.path}
           >
-            <FileIcon path={tab.path} />
-            <span>{name}</span>
-            {dirty && <span className="h-1.5 w-1.5 rounded-full bg-caret" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => void useWorkspaceStore.getState().activateTab(index)}
+              onAuxClick={(e) => {
+                if (e.button === 1) void useWorkspaceStore.getState().closeTabAt(index)
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setMenu({ x: e.clientX, y: e.clientY, tabIndex: index })
+              }}
+              className="flex h-full cursor-pointer items-center gap-1.5 pl-3 text-[12px]"
+              title={tab.path}
+            >
+              <FileIcon path={tab.path} />
+              <span>{name}</span>
+            </button>
+            {/* dirty dot doubles as the close button (RubyMine-style) */}
+            <button
+              type="button"
+              title="Close tab"
+              onClick={(e) => {
+                e.stopPropagation()
+                void useWorkspaceStore.getState().closeTabAt(index)
+              }}
+              className={`flex h-full w-6 cursor-pointer items-center justify-center text-[13px] ${
+                dirty
+                  ? 'text-caret hover:text-fg [&>.dot]:group-hover:hidden [&>.x]:hidden [&>.x]:group-hover:block'
+                  : `text-fg-dim hover:text-fg ${active ? '' : 'opacity-0 group-hover:opacity-100'}`
+              }`}
+            >
+              {dirty ? (
+                <>
+                  <span className="dot h-1.5 w-1.5 rounded-full bg-caret" />
+                  <span className="x">×</span>
+                </>
+              ) : (
+                <span>×</span>
+              )}
+            </button>
+          </div>
         )
       })}
 

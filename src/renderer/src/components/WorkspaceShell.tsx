@@ -197,14 +197,18 @@ export function WorkspaceShell(): React.JSX.Element {
               />
             </>
           )}
-          <main className="min-w-0 flex-1 overflow-hidden rounded-md border border-edge bg-primary">
-            {fileError ? (
-              <div className="flex h-full items-center justify-center px-8 text-[13px] text-warning">
-                {fileError}
-              </div>
-            ) : (
-              <EditorPane />
+          <main className="relative min-w-0 flex-1 overflow-hidden rounded-md border border-edge bg-primary">
+            {fileError && (
+              <button
+                type="button"
+                onClick={() => useWorkspaceStore.setState({ fileError: null })}
+                className="absolute top-10 right-3 z-30 cursor-pointer rounded-md border border-edge bg-secondary px-3 py-1.5 text-[12px] text-warning shadow-[0_4px_16px_rgba(0,0,0,.4)]"
+                title="Dismiss"
+              >
+                {fileError} ✕
+              </button>
             )}
+            <EditorPane />
           </main>
           {panels.rightVisible && (
             <>

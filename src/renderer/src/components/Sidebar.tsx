@@ -4,26 +4,12 @@ import { FileTree, useFileTree } from '@pierre/trees/react'
 import { useCallback, useEffect } from 'react'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, mergePersisted, useWorkspaceStore } from '../store'
+import { makeTreeSort } from '../treeSort'
 
 /** Mutable star set read by the sort comparator (resetPaths re-sorts). */
 const starredRef = { current: new Set<string>() }
 
-/** Starred first-level folders sort to the top (spec 07). */
-const treeSort = (
-  a: { depth: number; path: string; isDirectory: boolean; basename: string },
-  b: { depth: number; path: string; isDirectory: boolean; basename: string }
-): number => {
-  if (a.depth === 0 && b.depth === 0) {
-    const aStar = starredRef.current.has(a.path)
-    const bStar = starredRef.current.has(b.path)
-    if (aStar !== bStar) return aStar ? -1 : 1
-  }
-  if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
-  return (
-    a.basename.localeCompare(b.basename, undefined, { numeric: true }) ||
-    a.path.localeCompare(b.path)
-  )
-}
+const treeSort = makeTreeSort(() => starredRef.current)
 
 const prepare = (paths: readonly string[]): ReturnType<typeof prepareFileTreeInput> =>
   prepareFileTreeInput(paths, { flattenEmptyDirectories: true, sort: treeSort })
@@ -88,9 +74,11 @@ export function Sidebar(): React.JSX.Element {
   const renderContextMenu = useCallback(
     (item: ContextMenuItem, context: ContextMenuOpenContext) => {
       const state = useWorkspaceStore.getState()
-      const isFirstLevelDir = item.kind === 'directory' && !item.path.includes('/')
-      const starred = state.starredFolders.includes(item.path)
-      const excluded = state.excludedPaths.includes(item.path)
+      // directory paths arrive with a trailing slash from @pierre/trees
+      const path = item.path.replace(/\/+$/, '')
+      const isFirstLevelDir = item.kind === 'directory' && !path.includes('/')
+      const starred = state.starredFolders.includes(path)
+      const excluded = state.excludedPaths.includes(path)
       const root = state.rootPath ?? ''
 
       const entries: Array<[string, () => void]> = []
@@ -99,22 +87,22 @@ export function Sidebar(): React.JSX.Element {
           'Find in Folder…',
           () => {
             useSearchStore.getState().openModal(false)
-            useSearchStore.getState().setModalScope(item.path)
+            useSearchStore.getState().setModalScope(path)
           }
         ])
       }
       entries.push(
-        ['Copy Path', () => void navigator.clipboard.writeText(`${root}/${item.path}`)],
-        ['Copy Relative Path', () => void navigator.clipboard.writeText(item.path)],
-        ['Reveal in Finder', () => void window.api.revealInFinder(item.path)]
+        ['Copy Path', () => void window.api.copyToClipboard(`${root}/${path}`)],
+        ['Copy Relative Path', () => void window.api.copyToClipboard(path)],
+        ['Reveal in Finder', () => void window.api.revealInFinder(path)]
       )
       if (isFirstLevelDir) {
         entries.push([
           starred ? 'Unstar' : 'Star',
           () => {
             const next = starred
-              ? state.starredFolders.filter((p) => p !== item.path)
-              : [...state.starredFolders, item.path]
+              ? state.starredFolders.filter((p) => p !== path)
+              : [...state.starredFolders, path]
             useWorkspaceStore.setState({ starredFolders: next })
             mergePersisted({ starredFolders: next })
             // re-sort with the new stars
@@ -128,8 +116,8 @@ export function Sidebar(): React.JSX.Element {
         excluded ? 'Remove from Excluded Paths' : 'Exclude from Project',
         () => {
           const next = excluded
-            ? state.excludedPaths.filter((p) => p !== item.path)
-            : [...state.excludedPaths, item.path]
+            ? state.excludedPaths.filter((p) => p !== path)
+            : [...state.excludedPaths, path]
           useWorkspaceStore.setState({ excludedPaths: next })
           mergePersisted({ excludedPaths: next })
         }

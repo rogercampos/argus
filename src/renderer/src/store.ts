@@ -249,11 +249,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         excludedPaths: stored.excludedPaths ?? defaultWorkspaceState().excludedPaths,
         starredFolders: stored.starredFolders ?? []
       })
-      // Restore tabs without recency side-effects; only the active doc loads
-      const tabs = (stored.editor?.openTabs ?? []).map((t) => ({
+      // Restore tabs without recency side-effects; only the active doc loads.
+      // Tabs whose file disappeared since last session are dropped.
+      const restored = (stored.editor?.openTabs ?? []).map((t) => ({
         path: t.path,
         external: t.external ?? false
       }))
+      const checks = await Promise.all(
+        restored.map(async (t) => {
+          const abs = t.path.startsWith('/') ? t.path : `${root}/${t.path}`
+          return window.api.fileExists(abs)
+        })
+      )
+      const tabs = restored.filter((_, i) => checks[i])
       if (tabs.length > 0) {
         const activeIndex = Math.min(stored.editor.activeTab ?? 0, tabs.length - 1)
         set({ tabs: { tabs, activeIndex } })

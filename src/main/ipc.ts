@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
 import { startGitMonitor } from './git'
 import { lspManagerFor } from './lsp/manager'
@@ -167,6 +167,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('shell:reveal', (event, relPath: string) => {
     shell.showItemInFolder(join(eventWorkspace(event), relPath))
+  })
+  ipcMain.handle('clipboard:write', (_event, text: string) => {
+    clipboard.writeText(text)
   })
 
   ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))

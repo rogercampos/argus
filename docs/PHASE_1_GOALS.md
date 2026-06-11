@@ -105,9 +105,10 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 - [x] Duplicate line (Cmd+D), move line up/down (Alt+Shift+Up/Down).
 - [x] Diagnostics shown on hover directly in the editor; inline (ghost text)
       completion off by default.
-- [x] Editor tabs: no close-X clutter; opening an already-open file moves its
-      tab next to the current one; files outside the workspace (and inside
-      node_modules) rendered as "external" in a different color.
+- [x] Editor tabs: small close ×（active/hover）; opening an already-open file
+      moves its tab next to the current one; files outside the workspace (and
+      inside node_modules) rendered as "external" in a different color.
+      *(Spec changed 2026-06-11: close × added at Roger's request.)*
 
 ## File tree
 
@@ -296,6 +297,7 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | QA session: fixed file-tree duplication (custom sort comparator now segment-wise — @pierre/trees sorts the flat path list, so prefixes must stay contiguous); added tab close × (spec change); restored tabs now drop deleted files; file-open errors show as a dismissible banner instead of replacing the editor; tree context-menu paths normalized (library passes trailing slashes), copy actions use Electron clipboard. Re-verified: editor ops/undo, all modals, search modal+panel+replace, watcher relist, jump history, multi-window, welcome flow. |
 | 2026-06-11 | Phase 1 goal sweep complete: slow-ops viewer (Help menu) added; every goal checked off except LSP follow-ups noted inline (quick fixes, rename, format document). |
 | 2026-06-11 | Stage 7 (Tree features + Projects view + icons) done: reveal-active-file (button + View menu) expanding ancestors and centering, starred top-level folders (custom sort + ★ decoration + persistence), tree context menu (Find in Folder scoped search, Copy Path / Relative Path, Reveal in Finder, Star, Exclude), excluded paths filtered from go-to-file, colored file icons in modals/tabs/results, Projects modal with kinds + Rails badge + tool versions. CDP-verified on factorial. |
 | 2026-06-11 | Stage 6 (LSP + quality + Rails) done: per-project LSP manager (ruby-lsp/Sorbet/vtsls/bash-ls/ESLint-LS) with marker-based project detection, ancestor-sharing rule, interactive-login-shell env resolution, auto-install via task UI + 24h auto-update, pull+push diagnostics merged by source; CM wiring for squiggles, hover, completion; go-to-definition with multi-result picker; go-to-symbol modal; problems view pinned in the bottom panel; semgrep runner; Rails schema panel (db/schema.rb parser, auto-shows for model files). CDP-verified: vtsls auto-install→type-error diagnostics→fix-clears cycle, hover/definition, Rails schema panel on alexandria. |

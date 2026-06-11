@@ -73,11 +73,13 @@ editor tab system.
 ## Editor tabs
 
 - A horizontal tab bar above the editor. Tab shows: file type icon,
-  filename, and a dirty dot (replacing nothing else — there is **no close ×
-  on tabs**).
-- **Closing tabs**: middle-click a tab; `Cmd+W` closes the active tab;
-  context menu: Close, Close Other Tabs, Close All Tabs. (Auto-save means
-  no unsaved-changes prompts.)
+  filename, and a small **close ×** (always on the active tab, on hover for
+  inactive tabs). When the file is dirty, the × position shows a dirty dot
+  instead, swapping to × on hover. *(Changed 2026-06-11 by Roger from the
+  original no-× rule.)*
+- **Closing tabs**: the × button; middle-click a tab; `Cmd+W` closes the
+  active tab; context menu: Close, Close Other Tabs, Close All Tabs.
+  (Auto-save means no unsaved-changes prompts.)
 - **Insertion order**: a newly opened file's tab is inserted immediately
   **after the active tab**, and becomes active.
 - **Navigate-to-open-file rule**: navigating to a file whose tab is already
