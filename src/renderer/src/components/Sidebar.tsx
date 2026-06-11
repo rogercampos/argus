@@ -9,6 +9,9 @@ import { makeTreeSort } from '../treeSort'
 /** Mutable star set read by the sort comparator (resetPaths re-sorts). */
 const starredRef = { current: new Set<string>() }
 
+/** True while locate() rewrites the selection programmatically. */
+const suppressSelectionRef = { current: false }
+
 const treeSort = makeTreeSort(() => starredRef.current)
 
 const prepare = (paths: readonly string[]): ReturnType<typeof prepareFileTreeInput> =>
@@ -36,6 +39,7 @@ export function Sidebar(): React.JSX.Element {
         : null,
     composition: { contextMenu: { enabled: true, triggerMode: 'right-click' } },
     onSelectionChange: (selectedPaths) => {
+      if (suppressSelectionRef.current) return
       const path = selectedPaths[0]
       if (path && useWorkspaceStore.getState().filePaths.has(path)) {
         void useWorkspaceStore.getState().openFile(path)
@@ -51,18 +55,28 @@ export function Sidebar(): React.JSX.Element {
     model.setGitStatus(gitStatus)
   }, [model, gitStatus])
 
-  // Reveal Active File (spec 07): expand ancestors, scroll, select
+  // Reveal Active File (spec 07): expand ancestors, scroll, select.
+  // The previous selection is cleared first; selection-change events are
+  // suppressed so the cleanup doesn't re-open previously selected files.
   const locate = useCallback((): void => {
     const path = activeTabPath()
     if (!path || path.startsWith('/')) return
-    const segments = path.split('/')
-    for (let i = 1; i < segments.length; i++) {
-      const ancestor = segments.slice(0, i).join('/')
-      const item = model.getItem(ancestor)
-      if (item && 'expand' in item) (item as { expand(): void }).expand()
+    suppressSelectionRef.current = true
+    try {
+      for (const selected of model.getSelectedPaths()) {
+        if (selected !== path) model.getItem(selected)?.deselect()
+      }
+      const segments = path.split('/')
+      for (let i = 1; i < segments.length; i++) {
+        const ancestor = segments.slice(0, i).join('/')
+        const item = model.getItem(ancestor)
+        if (item && 'expand' in item) (item as { expand(): void }).expand()
+      }
+      model.scrollToPath(path, { focus: true, offset: 'center' })
+      model.getItem(path)?.select()
+    } finally {
+      suppressSelectionRef.current = false
     }
-    model.scrollToPath(path, { focus: true, offset: 'center' })
-    model.getItem(path)?.select()
   }, [model])
 
   useEffect(() => {
