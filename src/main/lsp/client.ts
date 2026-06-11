@@ -122,6 +122,20 @@ export class LspInstance {
     return Boolean(this.capabilities.diagnosticProvider)
   }
 
+  /**
+   * Fire-and-forget notification, safe against the dispose race: the
+   * connection throws synchronously when it was disposed (window close or
+   * server crash) between instance lookup and the send.
+   */
+  notify(method: string, params: unknown): void {
+    if (this.state === 'dead') return
+    try {
+      void this.connection.sendNotification(method, params)
+    } catch {
+      // connection closed mid-flight; the notification is moot
+    }
+  }
+
   kill(): void {
     this.state = 'dead'
     try {

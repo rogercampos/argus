@@ -93,7 +93,7 @@ export function registerIpcHandlers(): void {
     // saved files re-scan in semgrep (spec 12)
     if (result.ok) {
       const window = BrowserWindow.fromWebContents(event.sender)
-      if (window) lspManagerFor(window, root).noteFileSaved(relPath)
+      if (window) lspManagerFor(window, root)?.noteFileSaved(relPath)
     }
     return result
   })

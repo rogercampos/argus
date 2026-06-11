@@ -65,6 +65,8 @@ export class LspManager {
 
   dispose(): void {
     this.disposed = true
+    for (const timer of this.pullTimers.values()) clearTimeout(timer)
+    this.pullTimers.clear()
     for (const promise of this.instances.values()) {
       void promise.then((instance) => instance?.kill())
     }
@@ -91,6 +93,7 @@ export class LspManager {
 
   /** All running instances that serve this file's language. */
   private async instancesForFile(relPath: string): Promise<LspInstance[]> {
+    if (this.disposed) return []
     const languageId = languageIdForPath(relPath)
     if (!languageId) return []
     const env = await resolveShellEnv(this.root)
@@ -189,7 +192,7 @@ export class LspManager {
       // open already-open docs this instance serves
       for (const doc of this.openDocs.values()) {
         if (config.languages.includes(doc.languageId)) {
-          void instance.connection.sendNotification('textDocument/didOpen', {
+          instance.notify('textDocument/didOpen', {
             textDocument: {
               uri: this.uri(doc.relPath),
               languageId: doc.languageId,
@@ -269,13 +272,14 @@ export class LspManager {
   }
 
   async didOpen(relPath: string, text: string): Promise<void> {
+    if (this.disposed) return
     const languageId = languageIdForPath(relPath)
     if (!languageId) return
     this.openDocs.set(relPath, { relPath, languageId, text, version: 1 })
     this.semgrep.scan(relPath)
     const instances = await this.instancesForFile(relPath)
     for (const instance of instances) {
-      void instance.connection.sendNotification('textDocument/didOpen', {
+      instance.notify('textDocument/didOpen', {
         textDocument: { uri: this.uri(relPath), languageId, version: 1, text }
       })
     }
@@ -283,13 +287,14 @@ export class LspManager {
   }
 
   async didChange(relPath: string, text: string): Promise<void> {
+    if (this.disposed) return
     const doc = this.openDocs.get(relPath)
     if (!doc) return
     doc.text = text
     doc.version += 1
     const instances = await this.instancesForFile(relPath)
     for (const instance of instances) {
-      void instance.connection.sendNotification('textDocument/didChange', {
+      instance.notify('textDocument/didChange', {
         textDocument: { uri: this.uri(relPath), version: doc.version },
         contentChanges: [{ text }]
       })
@@ -301,7 +306,7 @@ export class LspManager {
     if (!this.openDocs.delete(relPath)) return
     const instances = await this.instancesForFile(relPath)
     for (const instance of instances) {
-      void instance.connection.sendNotification('textDocument/didClose', {
+      instance.notify('textDocument/didClose', {
         textDocument: { uri: this.uri(relPath) }
       })
     }
@@ -482,7 +487,8 @@ export class LspManager {
 
 const managers = new Map<number, LspManager>()
 
-export function lspManagerFor(window: BrowserWindow, root: string): LspManager {
+export function lspManagerFor(window: BrowserWindow, root: string): LspManager | null {
+  if (window.isDestroyed()) return null // late IPC must not resurrect a manager
   let manager = managers.get(window.id)
   if (!manager) {
     manager = new LspManager(root, window)
