@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { gotoDefinition } from './lsp'
+import { useProcStore } from './procStore'
 import { useSearchStore } from './searchStore'
 import { activeView, documents, useWorkspaceStore } from './store'
 import { useTasksStore } from './tasksStore'
@@ -17,6 +18,7 @@ if (import.meta.env.DEV) {
     workspaceStore: useWorkspaceStore,
     searchStore: useSearchStore,
     tasksStore: useTasksStore,
+    procStore: useProcStore,
     documents,
     activeView,
     gotoDefinition

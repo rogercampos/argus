@@ -6,6 +6,7 @@ import type {
   GitState,
   GitStatusDiff,
   MenuCommand,
+  ProcStatsSnapshot,
   SearchProgress,
   WatchEvent,
   WindowInitData
@@ -64,6 +65,7 @@ const api: ArgusApi = {
   onGitState: makeListener<GitState>('git:state'),
   onGitStatusDiff: makeListener<GitStatusDiff>('git:status-diff'),
   onTaskUpdate: makeListener<BackgroundTaskUpdate>('task:update'),
+  onProcStats: makeListener<ProcStatsSnapshot>('proc:stats'),
   onWatchEvents: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, events: WatchEvent[]): void =>
       handler(events)

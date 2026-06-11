@@ -174,6 +174,50 @@ export interface BackgroundTaskUpdate {
   percentage?: number
 }
 
+// --- Process resource monitor ---
+
+export type ProcKind = 'lsp' | 'search' | 'git' | 'semgrep' | 'shell-env' | 'install'
+
+/** One live external process, with its descendant tree rolled up. */
+export interface ProcStatEntry {
+  id: number
+  pid: number
+  kind: ProcKind
+  label: string
+  /** % of one core (Activity Monitor convention), including descendants */
+  cpu: number
+  /** RSS including descendants */
+  memBytes: number
+  childCount: number
+  startedAt: number
+  windowId?: number
+}
+
+/** Aggregated short-lived runs per kind (git status blips etc.). */
+export interface ProcActivity {
+  kind: ProcKind
+  totalCount: number
+  count5m: number
+  avgMs5m: number | null
+  lastAt: number | null
+}
+
+/** Electron's own processes (main, renderers, GPU). */
+export interface AppProcStat {
+  type: string
+  pid: number
+  cpu: number
+  memBytes: number
+}
+
+export interface ProcStatsSnapshot {
+  at: number
+  entries: ProcStatEntry[]
+  activity: ProcActivity[]
+  app: AppProcStat[]
+  totals: { cpu: number; memBytes: number; count: number }
+}
+
 // --- File watching ---
 
 export interface WatchEvent {
@@ -296,6 +340,7 @@ export interface ArgusApi {
   onGitState(handler: (state: GitState) => void): () => void
   onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void
   onTaskUpdate(handler: (update: BackgroundTaskUpdate) => void): () => void
+  onProcStats(handler: (snapshot: ProcStatsSnapshot) => void): () => void
 
   // per-workspace persisted state (scoped to this window's workspace)
   loadWorkspaceState(): Promise<PersistedWorkspaceState | null>

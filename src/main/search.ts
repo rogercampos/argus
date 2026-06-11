@@ -1,8 +1,9 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { rgPath } from '@vscode/ripgrep'
 import type { SearchMatch, SearchOptions, SearchProgress } from '../shared/types'
+import { trackedSpawn } from './procRegistry'
 
 /**
  * Global search backend (spec 03): ripgrep with --json output, streaming
@@ -62,10 +63,12 @@ export function runSearch(
   onProgress: (progress: SearchProgress) => void
 ): RunningSearch {
   const maxResults = options.maxResults ?? 1000
-  const child: ChildProcess = spawn(rgPath, buildRgArgs(options), {
-    cwd: root,
-    stdio: ['ignore', 'pipe', 'ignore']
-  })
+  const child: ChildProcess = trackedSpawn(
+    rgPath,
+    buildRgArgs(options),
+    { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
+    { kind: 'search', label: `ripgrep: ${options.pattern.slice(0, 40)}` }
+  )
 
   let buffer = ''
   let pending: SearchMatch[] = []

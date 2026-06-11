@@ -3,6 +3,7 @@ import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
 import { gotoDefinition, initLsp } from '../lsp'
+import { useProcStore } from '../procStore'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { useTasksStore } from '../tasksStore'
@@ -32,6 +33,7 @@ export function WorkspaceShell(): React.JSX.Element {
 
   useEffect(() => {
     useTasksStore.getState().init()
+    useProcStore.getState().init()
     initLsp()
     void useWorkspaceStore
       .getState()

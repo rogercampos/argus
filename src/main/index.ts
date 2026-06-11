@@ -3,6 +3,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow } from 'electron'
 import { registerIpcHandlers } from './ipc'
 import { rebuildApplicationMenu } from './menu'
+import { startProcStats } from './procStats'
 import { initStateDir } from './state'
 import {
   markQuitting,
@@ -35,6 +36,7 @@ if (!gotLock) {
     })
 
     registerIpcHandlers()
+    startProcStats()
     await rebuildApplicationMenu()
     await restoreSession()
 

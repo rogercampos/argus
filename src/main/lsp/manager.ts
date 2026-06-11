@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { app, type BrowserWindow } from 'electron'
@@ -10,6 +9,7 @@ import type {
   LspLocation,
   LspSymbol
 } from '../../shared/types'
+import { trackedSpawn } from '../procRegistry'
 import { schemaForModel } from '../schema'
 import { SemgrepRunner } from '../semgrep'
 import { startTask } from '../tasks'
@@ -144,7 +144,12 @@ export class LspManager {
       try {
         const install = config.install(dataDir, env)
         await new Promise<void>((resolve) => {
-          const child = spawn(install.cmd, install.args, { env })
+          const child = trackedSpawn(
+            install.cmd,
+            install.args,
+            { env },
+            { kind: 'install', label: `install ${config.name}`, windowId: this.window.id }
+          )
           child.on('exit', () => resolve())
           child.on('error', () => resolve())
         })
@@ -164,6 +169,7 @@ export class LspManager {
         args: command.args,
         cwd: projectRoot,
         env,
+        windowId: this.window.id,
         initializationOptions: await config.initializationOptions?.(projectRoot),
         settings: await config.settings?.(projectRoot, { excludeGems: true }),
         onDiagnostics: (uri, diagnostics) =>
@@ -245,7 +251,12 @@ export class LspManager {
     }
     await fs.writeFile(marker, new Date().toISOString())
     const install = config.install(dataDir, env)
-    spawn(install.cmd, install.args, { env }).on('error', () => {})
+    trackedSpawn(
+      install.cmd,
+      install.args,
+      { env },
+      { kind: 'install', label: `update ${config.name}` }
+    ).on('error', () => {})
   }
 
   /** Rails schema for an AR model file, or null (spec 11). */

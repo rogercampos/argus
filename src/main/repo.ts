@@ -1,10 +1,7 @@
-import { execFile } from 'node:child_process'
 import { type Dirent, promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { promisify } from 'node:util'
 import type { FileReadResult, FileWriteResult, GitStatusEntry } from '../shared/types'
-
-const execFileAsync = promisify(execFile)
+import { trackedExecFile } from './procRegistry'
 
 // git ls-files on a ~100k file repo can return tens of MB
 const GIT_MAX_BUFFER = 512 * 1024 * 1024
@@ -28,10 +25,11 @@ function safeResolve(root: string, relPath: string): string {
  */
 export async function listFiles(root: string): Promise<string[]> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await trackedExecFile(
       'git',
       ['-C', root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
-      { maxBuffer: GIT_MAX_BUFFER }
+      { maxBuffer: GIT_MAX_BUFFER },
+      { kind: 'git', label: 'git ls-files' }
     )
     return stdout.split('\0').filter(Boolean)
   } catch {
@@ -78,10 +76,11 @@ const GIT_STATUS_BY_CODE: Record<string, GitStatusEntry['status']> = {
 export async function gitStatus(root: string): Promise<GitStatusEntry[]> {
   let stdout: string
   try {
-    const result = await execFileAsync(
+    const result = await trackedExecFile(
       'git',
       ['-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all'],
-      { maxBuffer: GIT_MAX_BUFFER }
+      { maxBuffer: GIT_MAX_BUFFER },
+      { kind: 'git', label: 'git status' }
     )
     stdout = result.stdout
   } catch {

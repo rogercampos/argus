@@ -1,4 +1,5 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+import { basename } from 'node:path'
 import type { Diagnostic } from 'vscode-languageserver-protocol'
 import {
   createProtocolConnection,
@@ -6,6 +7,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter
 } from 'vscode-languageserver-protocol/node'
+import { trackedSpawn } from '../procRegistry'
 
 /**
  * One running language server instance: process + jsonrpc connection +
@@ -18,6 +20,7 @@ export interface LspInstanceOptions {
   args: string[]
   cwd: string
   env: Record<string, string>
+  windowId?: number
   initializationOptions?: unknown
   settings?: unknown
   onDiagnostics: (uri: string, diagnostics: Diagnostic[]) => void
@@ -35,11 +38,16 @@ export class LspInstance {
   constructor(private options: LspInstanceOptions) {
     this.name = options.name
     this.root = options.cwd
-    this.child = spawn(options.cmd, options.args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
+    this.child = trackedSpawn(
+      options.cmd,
+      options.args,
+      { cwd: options.cwd, env: options.env, stdio: ['pipe', 'pipe', 'pipe'] },
+      {
+        kind: 'lsp',
+        label: `${options.name} (${basename(options.cwd)})`,
+        windowId: options.windowId
+      }
+    )
     this.child.stderr?.on('data', () => {}) // drain
     this.child.on('exit', () => {
       this.state = 'dead'

@@ -1,11 +1,8 @@
-import { execFile } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import type { LspDiagnostic } from '../shared/types'
 import { resolveShellEnv } from './lsp/env'
-
-const execFileAsync = promisify(execFile)
+import { trackedExecFile } from './procRegistry'
 
 /**
  * Semgrep integration (spec 12): only active when a semgrep config exists at
@@ -59,7 +56,7 @@ export class SemgrepRunner {
       if (this.generations.get(relPath) !== generation) return // superseded
       if (!(await this.ensureChecked())) return
       try {
-        const { stdout } = await execFileAsync(
+        const { stdout } = await trackedExecFile(
           this.binary as string,
           [
             'scan',
@@ -76,7 +73,8 @@ export class SemgrepRunner {
             '1',
             relPath
           ],
-          { cwd: this.root, maxBuffer: 64 * 1024 * 1024, timeout: 60_000 }
+          { cwd: this.root, maxBuffer: 64 * 1024 * 1024, timeout: 60_000 },
+          { kind: 'semgrep', label: `semgrep: ${relPath}` }
         )
         if (this.generations.get(relPath) !== generation) return
         const report = JSON.parse(stdout) as {

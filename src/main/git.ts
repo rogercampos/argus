@@ -1,11 +1,9 @@
-import { execFile } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import type { BrowserWindow } from 'electron'
 import type { GitState, GitStatusEntry } from '../shared/types'
+import { trackedExecFile } from './procRegistry'
 
-const execFileAsync = promisify(execFile)
 const MAX_BUFFER = 512 * 1024 * 1024
 
 /**
@@ -72,6 +70,7 @@ export async function readBranchAndState(root: string): Promise<Omit<GitState, '
 }
 
 export class GitMonitor {
+  private windowId: number
   private statuses = new Map<string, GitStatusEntry['status']>()
   private lastState: Omit<GitState, 'isRepo'> = { branch: null, state: null }
   private pendingPaths = new Set<string>()
@@ -83,7 +82,9 @@ export class GitMonitor {
   constructor(
     private root: string,
     private window: BrowserWindow
-  ) {}
+  ) {
+    this.windowId = window.id
+  }
 
   async start(): Promise<void> {
     try {
@@ -153,7 +154,12 @@ export class GitMonitor {
     try {
       const args = ['-C', this.root, 'status', '--porcelain=v1', '-z', '--untracked-files=all']
       if (paths && paths.length > 0) args.push('--', ...paths)
-      const { stdout } = await execFileAsync('git', args, { maxBuffer: MAX_BUFFER })
+      const { stdout } = await trackedExecFile(
+        'git',
+        args,
+        { maxBuffer: MAX_BUFFER },
+        { kind: 'git', label: 'git status', windowId: this.windowId }
+      )
       return parsePorcelain(stdout)
     } catch {
       return null

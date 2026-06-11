@@ -1,7 +1,5 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { basename } from 'node:path'
+import { trackedExecFile } from '../procRegistry'
 
 /**
  * Shell environment resolution (spec 08): interactive login shell with a cd
@@ -20,10 +18,11 @@ export async function resolveShellEnv(dir: string): Promise<Record<string, strin
   const promise = (async (): Promise<Record<string, string>> => {
     const shell = process.env.SHELL ?? '/bin/zsh'
     try {
-      const { stdout } = await execFileAsync(
+      const { stdout } = await trackedExecFile(
         shell,
         ['-i', '-l', '-c', `cd '${dir.replace(/'/g, "'\\''")}' && env -0`],
-        { maxBuffer: 10 * 1024 * 1024, timeout: 15_000 }
+        { maxBuffer: 10 * 1024 * 1024, timeout: 15_000 },
+        { kind: 'shell-env', label: `shell env: ${basename(dir)}` }
       )
       const env: Record<string, string> = {}
       for (const entry of stdout.split('\0')) {
