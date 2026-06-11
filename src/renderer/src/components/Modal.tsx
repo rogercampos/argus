@@ -95,7 +95,6 @@ export function Modal({
       }}
     >
       <div className="h-[12vh] shrink-0" />
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: resize handle behavior */}
       <div
         ref={boxRef}
         role="dialog"

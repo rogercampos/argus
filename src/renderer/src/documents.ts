@@ -23,10 +23,33 @@ export interface ManagedDocument {
 }
 
 type DirtyListener = (path: string, dirty: boolean) => void
+type DocListener = (path: string, text: string) => void
+
+const CHANGE_NOTIFY_DEBOUNCE_MS = 200
 
 export class DocumentManager {
   private docs = new Map<string, ManagedDocument>()
   private dirtyListeners = new Set<DirtyListener>()
+  private openListeners = new Set<DocListener>()
+  private changeListeners = new Set<DocListener>()
+  private closeListeners = new Set<(path: string) => void>()
+  private changeTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  onOpen(listener: DocListener): () => void {
+    this.openListeners.add(listener)
+    return () => this.openListeners.delete(listener)
+  }
+
+  /** Debounced full-text change notifications (for LSP sync). */
+  onChangeText(listener: DocListener): () => void {
+    this.changeListeners.add(listener)
+    return () => this.changeListeners.delete(listener)
+  }
+
+  onClose(listener: (path: string) => void): () => void {
+    this.closeListeners.add(listener)
+    return () => this.closeListeners.delete(listener)
+  }
 
   constructor(
     private readFileFn: (path: string) => Promise<string | null>,
@@ -66,6 +89,7 @@ export class DocumentManager {
       lastSavedText: content
     }
     this.docs.set(path, doc)
+    for (const l of this.openListeners) l(path, content)
     return doc
   }
 
@@ -80,7 +104,22 @@ export class DocumentManager {
       doc.saveTimer = setTimeout(() => {
         void this.save(path)
       }, AUTOSAVE_DELAY_MS)
+      this.scheduleChangeNotify(path)
     }
+  }
+
+  private scheduleChangeNotify(path: string): void {
+    const existing = this.changeTimers.get(path)
+    if (existing) clearTimeout(existing)
+    this.changeTimers.set(
+      path,
+      setTimeout(() => {
+        const doc = this.docs.get(path)
+        if (!doc) return
+        const text = doc.state.doc.toString()
+        for (const l of this.changeListeners) l(path, text)
+      }, CHANGE_NOTIFY_DEBOUNCE_MS)
+    )
   }
 
   async save(path: string): Promise<void> {
@@ -146,6 +185,7 @@ export class DocumentManager {
     if (!doc) return
     await this.save(path)
     this.docs.delete(path)
+    for (const l of this.closeListeners) l(path)
   }
 
   isDirty(path: string): boolean {

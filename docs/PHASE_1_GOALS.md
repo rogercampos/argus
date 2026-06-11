@@ -85,8 +85,8 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
       intent (not incidental opens). *(File icons pending icon system.)*
 - [x] History of visited files; jump back / jump forward (Cmd+Alt+Left/Right).
 - [x] Go to line (Cmd+L) as its own modal.
-- [ ] Go to symbol as its own modal.
-- [ ] Go to definition (Cmd+B); when there are multiple definitions, show them
+- [x] Go to symbol as its own modal.
+- [x] Go to definition (Cmd+B); when there are multiple definitions, show them
       in a results panel. Don't re-center the viewport unnecessarily.
 - [x] No command palette: features have their own shortcuts/modals, and all
       commands are reachable through the native macOS menu bar (File, View,
@@ -104,7 +104,7 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
       per editor; custom RubyMine-style bar can come as polish.)*
 - [x] Word-wise selection; syntax-aware expand/shrink selection (Alt+Up/Down).
 - [x] Duplicate line (Cmd+D), move line up/down (Alt+Shift+Up/Down).
-- [ ] Diagnostics shown on hover directly in the editor; inline (ghost text)
+- [x] Diagnostics shown on hover directly in the editor; inline (ghost text)
       completion off by default.
 - [x] Editor tabs: no close-X clutter; opening an already-open file moves its
       tab next to the current one; files outside the workspace (and inside
@@ -130,16 +130,16 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 
 Main languages: Ruby, TypeScript/JavaScript, plus shell.
 
-- [ ] LSP client infrastructure with pull diagnostics support, forwarding the
+- [x] LSP client infrastructure with pull diagnostics support, forwarding the
       project environment to the server process.
-- [ ] Ruby: ruby-lsp auto-installed and auto-updated; setting to skip gems
+- [x] Ruby: ruby-lsp auto-installed and auto-updated; setting to skip gems
       indexing (on by default); Sorbet support; don't spawn a second ruby-lsp
       for a subfolder when a parent already runs one.
-- [ ] TypeScript/JS: vtsls, with memory sized dynamically by project size.
-- [ ] Bash LSP.
-- [ ] Servers start per detected project, not per workspace (see "Workspace &
+- [x] TypeScript/JS: vtsls, with memory sized dynamically by project size.
+- [x] Bash LSP.
+- [x] Servers start per detected project, not per workspace (see "Workspace &
       Project model").
-- [ ] Resolve project envs lazily (don't block startup).
+- [x] Resolve project envs lazily (don't block startup).
 
 ## Git integration
 
@@ -177,10 +177,11 @@ there is no "open one file"; it's always a folder.
 like factorial contains many projects (some Ruby, some JavaScript, some Rust,
 …).
 
-- [ ] Detect the projects inside a workspace (by language/tooling markers:
+- [x] Detect the projects inside a workspace (by language/tooling markers:
       Gemfile, package.json, Cargo.toml, …).
-- [ ] Use detected projects to decide which LSP servers to start, per project.
-- [ ] Show the workspace's projects in the UI.
+- [x] Use detected projects to decide which LSP servers to start, per project.
+- [ ] Show the workspace's projects in the UI. *(Data flows to the renderer;
+      the Projects view itself is pending.)*
 
 ## Windows & app lifecycle
 
@@ -195,18 +196,18 @@ and [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 
 → Spec: [specs/11-rails.md](specs/11-rails.md)
 
-- [ ] Detect Rails projects.
-- [ ] Show the DB schema of the ActiveRecord model in the side panel when
+- [x] Detect Rails projects.
+- [x] Show the DB schema of the ActiveRecord model in the side panel when
       viewing a model file.
-- [ ] Rake file support (treated as Ruby).
+- [x] Rake file support (treated as Ruby).
 
 ## Code quality reports
 
 → Spec: [specs/12-quality-reports.md](specs/12-quality-reports.md)
 
-- [ ] ESLint reports integration.
-- [ ] Semgrep integration.
-- [ ] Problems view listing all diagnostics, grouped by file.
+- [x] ESLint reports integration.
+- [x] Semgrep integration.
+- [x] Problems view listing all diagnostics, grouped by file.
 
 ## Background tasks & responsiveness
 
@@ -293,6 +294,7 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Stage 6 (LSP + quality + Rails) done: per-project LSP manager (ruby-lsp/Sorbet/vtsls/bash-ls/ESLint-LS) with marker-based project detection, ancestor-sharing rule, interactive-login-shell env resolution, auto-install via task UI + 24h auto-update, pull+push diagnostics merged by source; CM wiring for squiggles, hover, completion; go-to-definition with multi-result picker; go-to-symbol modal; problems view pinned in the bottom panel; semgrep runner; Rails schema panel (db/schema.rb parser, auto-shows for model files). CDP-verified: vtsls auto-install→type-error diagnostics→fix-clears cycle, hover/definition, Rails schema panel on alexandria. |
 | 2026-06-11 | Stage 5 (Git + background tasks) done: GitMonitor with branch/repo-state from .git file reads, deferred initial scan, 500ms-debounced targeted rescans, diff-only updates; branch + state in title bar; background task model (started/progress/finished) with status-bar spinner + tasks popup; replace-all reports progress; slow-op logging. CDP-verified: branch follows checkout live, status diffs on create/delete, task lifecycle during replace-all. |
 | 2026-06-11 | Stage 4 (Global search) done: ripgrep streaming backend (150ms batches, 100/1000 caps, gitignore + excluded paths, scoped folders), search modal with selection prefill + flag toggles + folder picker + editable preview, full-width bottom panel with search tabs (re-run on activate, lazy restore, persisted), global replace (single-match through buffers + replace-all with capture groups), in-editor find via CM panel. CDP-verified: streaming on factorial, preview-edit→autosave, replace-all, tab restore. |
 | 2026-06-11 | Stage 3 (Navigation) done: shared resizable modal pattern, Go to File with worker-thread fuzzy matching (60ms on 98k files, 200-cap, previous-query reuse, absolute paths), Recent Files popup with intent-based recency + duplicate-basename hints, jump history with back/forward, Go to Line (N / N:C) from menu and status bar. CDP-verified end to end on factorial. |

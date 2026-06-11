@@ -4,8 +4,10 @@ import { create } from 'zustand'
 import type {
   GitState,
   GitStatusEntry,
+  LspLocation,
   PanelLayoutState,
-  PersistedWorkspaceState
+  PersistedWorkspaceState,
+  ProjectInfo
 } from '../../shared/types'
 import { defaultWorkspaceState } from '../../shared/types'
 import { DocumentManager } from './documents'
@@ -15,7 +17,7 @@ import { closeOtherTabs, closeTab, cycleTab, MAX_OPEN_TABS, openTab, tabToEvict 
 
 const MAX_RECENT_FILES = 100
 
-export type ModalKind = 'go-to-file' | 'recent-files' | 'go-to-line' | null
+export type ModalKind = 'go-to-file' | 'recent-files' | 'go-to-line' | 'go-to-symbol' | null
 
 interface WorkspaceStore {
   rootPath: string | null
@@ -37,6 +39,11 @@ interface WorkspaceStore {
   openModal: ModalKind
   lastGoToFileQuery: string
   excludedPaths: string[]
+  diagnosticCounts: { errors: number; warnings: number }
+  projects: ProjectInfo[]
+  definitionChoices: LspLocation[] | null
+  problems: Array<{ path: string; diagnostics: import('../../shared/types').LspDiagnostic[] }>
+  schemaInfo: import('../../shared/types').RailsSchemaInfo | null
 
   init: () => Promise<void>
   openFile: (relPath: string, options?: { intent?: boolean }) => Promise<void>
@@ -208,6 +215,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   openModal: null,
   lastGoToFileQuery: '',
   excludedPaths: defaultWorkspaceState().excludedPaths,
+  diagnosticCounts: { errors: 0, warnings: 0 },
+  projects: [],
+  definitionChoices: null,
+  problems: [],
+  schemaInfo: null,
 
   init: async () => {
     const root = window.api.windowInit.workspacePath

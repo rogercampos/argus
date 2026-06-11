@@ -93,6 +93,67 @@ export function defaultWorkspaceState(): PersistedWorkspaceState {
   }
 }
 
+// --- LSP (spec 08) ---
+
+export interface ProjectInfo {
+  root: string
+  relRoot: string
+  kinds: Array<
+    'ruby' | 'javascript' | 'rust' | 'go' | 'python' | 'elixir' | 'java' | 'swift' | 'shellscript'
+  >
+  isRails: boolean
+  toolVersions: Record<string, string>
+}
+
+export interface LspDiagnostic {
+  startLine: number // 0-based
+  startChar: number
+  endLine: number
+  endChar: number
+  severity: 1 | 2 | 3 | 4 // error, warning, info, hint
+  message: string
+  source: string
+}
+
+export interface LspLocation {
+  /** workspace-relative when inside the workspace, absolute otherwise */
+  path: string
+  line: number // 0-based
+  character: number
+}
+
+export interface LspCompletionItem {
+  label: string
+  kind?: number
+  detail?: string
+  insertText: string
+}
+
+export interface LspSymbol {
+  name: string
+  kind: number
+  containerName?: string
+  location: LspLocation
+}
+
+export interface LspHoverResult {
+  contents: string
+}
+
+// --- Rails schema (spec 11) ---
+
+export interface RailsSchemaInfo {
+  table: string
+  columns: Array<{
+    name: string
+    type: string
+    notNull: boolean
+    default: string | null
+    line: number
+  }>
+  indexes: Array<{ columns: string[]; unique: boolean; line: number }>
+}
+
 // --- Git state (spec 09) ---
 
 export interface GitState {
@@ -207,6 +268,25 @@ export interface ArgusApi {
   onMenuCommand(handler: (command: MenuCommand) => void): () => void
   startWatching(): Promise<void>
   onWatchEvents(handler: (events: WatchEvent[]) => void): () => void
+  // LSP
+  lspDidOpen(relPath: string, text: string): Promise<void>
+  lspDidChange(relPath: string, text: string): Promise<void>
+  lspDidClose(relPath: string): Promise<void>
+  lspHover(relPath: string, line: number, character: number): Promise<LspHoverResult | null>
+  lspDefinition(
+    relPath: string,
+    line: number,
+    character: number,
+    kind: 'definition' | 'typeDefinition'
+  ): Promise<LspLocation[]>
+  lspCompletion(relPath: string, line: number, character: number): Promise<LspCompletionItem[]>
+  lspWorkspaceSymbols(query: string): Promise<LspSymbol[]>
+  onLspDiagnostics(
+    handler: (payload: { path: string; diagnostics: LspDiagnostic[] }) => void
+  ): () => void
+  onLspProjects(handler: (projects: ProjectInfo[]) => void): () => void
+  railsSchemaFor(relPath: string): Promise<RailsSchemaInfo | null>
+
   onGitState(handler: (state: GitState) => void): () => void
   onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void
   onTaskUpdate(handler: (update: BackgroundTaskUpdate) => void): () => void

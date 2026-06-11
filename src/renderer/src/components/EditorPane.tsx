@@ -11,6 +11,7 @@ import { basicSetup } from 'codemirror'
 import { useEffect, useRef } from 'react'
 import { argusKeymap } from '../editorKeymap'
 import { argusEditorTheme } from '../editorTheme'
+import { applyDiagnosticsToView, lspExtensions } from '../lsp'
 import { documents, registerActiveView, setExtensionsBuilder, useWorkspaceStore } from '../store'
 import { EditorTabs } from './EditorTabs'
 
@@ -61,7 +62,8 @@ function buildExtensions(path: string): Extension[] {
     highlightSelectionMatches(),
     sync,
     ...argusEditorTheme,
-    ...languageFor(path)
+    ...languageFor(path),
+    ...lspExtensions(path)
   ]
 }
 
@@ -110,6 +112,7 @@ export function EditorPane(): React.JSX.Element {
 
     view.setState(doc.state)
     shownPathRef.current = activePath
+    applyDiagnosticsToView(view, activePath)
 
     // Restore scroll: in-session position, else persisted position
     if (doc.lastScrollTop > 0) {

@@ -41,6 +41,22 @@ const api: ArgusApi = {
   },
 
   startWatching: () => ipcRenderer.invoke('watch:start'),
+  lspDidOpen: (relPath, text) => ipcRenderer.invoke('lsp:did-open', relPath, text),
+  lspDidChange: (relPath, text) => ipcRenderer.invoke('lsp:did-change', relPath, text),
+  lspDidClose: (relPath) => ipcRenderer.invoke('lsp:did-close', relPath),
+  lspHover: (relPath, line, character) => ipcRenderer.invoke('lsp:hover', relPath, line, character),
+  lspDefinition: (relPath, line, character, kind) =>
+    ipcRenderer.invoke('lsp:definition', relPath, line, character, kind),
+  lspCompletion: (relPath, line, character) =>
+    ipcRenderer.invoke('lsp:completion', relPath, line, character),
+  lspWorkspaceSymbols: (query) => ipcRenderer.invoke('lsp:workspace-symbols', query),
+  onLspDiagnostics: makeListener<{
+    path: string
+    diagnostics: import('../shared/types').LspDiagnostic[]
+  }>('lsp:diagnostics'),
+  onLspProjects: makeListener<import('../shared/types').ProjectInfo[]>('lsp:projects'),
+  railsSchemaFor: (relPath) => ipcRenderer.invoke('rails:schema-for', relPath),
+
   onGitState: makeListener<GitState>('git:state'),
   onGitStatusDiff: makeListener<GitStatusDiff>('git:status-diff'),
   onTaskUpdate: makeListener<BackgroundTaskUpdate>('task:update'),

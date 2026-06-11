@@ -2,14 +2,18 @@ import { copyLineDown, moveLineDown, moveLineUp, toggleComment } from '@codemirr
 import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
+import { gotoDefinition, initLsp } from '../lsp'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { useTasksStore } from '../tasksStore'
+import { DefinitionPicker } from './DefinitionPicker'
 import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
 import { GoToLineModal } from './GoToLineModal'
+import { GoToSymbolModal } from './GoToSymbolModal'
 import { RecentFilesModal } from './RecentFilesModal'
 import { Resizer } from './Resizer'
+import { SchemaPanel } from './SchemaPanel'
 import { SearchModal } from './SearchModal'
 import { SearchPanel } from './SearchPanel'
 import { Sidebar } from './Sidebar'
@@ -25,6 +29,7 @@ export function WorkspaceShell(): React.JSX.Element {
 
   useEffect(() => {
     useTasksStore.getState().init()
+    initLsp()
     void useWorkspaceStore
       .getState()
       .init()
@@ -94,6 +99,15 @@ export function WorkspaceShell(): React.JSX.Element {
       case 'global-replace':
         useSearchStore.getState().openModal(true)
         break
+      case 'go-to-symbol':
+        state.setModal('go-to-symbol')
+        break
+      case 'go-to-definition':
+        void gotoDefinition('definition')
+        break
+      case 'go-to-type-definition':
+        void gotoDefinition('typeDefinition')
+        break
       case 'find':
       case 'replace':
         if (view) {
@@ -108,15 +122,41 @@ export function WorkspaceShell(): React.JSX.Element {
 
   useEffect(() => window.api.onMenuCommand(onMenuCommand), [onMenuCommand])
 
+  // Rails schema panel follows the active model file (spec 11)
+  const tabs = useWorkspaceStore((s) => s.tabs)
+  const activePath = tabs.tabs[tabs.activeIndex]?.path ?? null
+  useEffect(() => {
+    if (!activePath || !/app\/models\/.+\.rb$/.test(activePath)) {
+      useWorkspaceStore.setState({ schemaInfo: null })
+      const { panels, setPanels } = useWorkspaceStore.getState()
+      if (panels.rightVisible) setPanels({ rightVisible: false })
+      return
+    }
+    void window.api.railsSchemaFor(activePath).then((schemaInfo) => {
+      if (
+        useWorkspaceStore.getState().tabs.tabs[useWorkspaceStore.getState().tabs.activeIndex]
+          ?.path !== activePath
+      )
+        return
+      useWorkspaceStore.setState({ schemaInfo })
+      const { panels, setPanels } = useWorkspaceStore.getState()
+      if (schemaInfo && !panels.rightVisible) setPanels({ rightVisible: true })
+      if (!schemaInfo && panels.rightVisible) setPanels({ rightVisible: false })
+    })
+  }, [activePath])
+
   const openModal = useWorkspaceStore((s) => s.openModal)
   const searchModalOpen = useSearchStore((s) => s.modalOpen)
+  const definitionChoices = useWorkspaceStore((s) => s.definitionChoices)
 
   return (
     <div className="shell-gradient flex h-screen flex-col">
       {openModal === 'go-to-file' && <GoToFileModal />}
       {openModal === 'recent-files' && <RecentFilesModal />}
       {openModal === 'go-to-line' && <GoToLineModal />}
+      {openModal === 'go-to-symbol' && <GoToSymbolModal />}
       {searchModalOpen && <SearchModal />}
+      {definitionChoices && <DefinitionPicker choices={definitionChoices} />}
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-col px-2 pb-2">
         <div className="flex min-h-0 flex-1">
@@ -169,7 +209,7 @@ export function WorkspaceShell(): React.JSX.Element {
                 style={{ width: panels.rightWidth }}
                 className="shrink-0 overflow-hidden rounded-md border border-edge bg-secondary"
               >
-                {/* Schema panel mounts here in stage 6 */}
+                <SchemaPanel />
               </aside>
             </>
           )}

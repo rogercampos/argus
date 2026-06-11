@@ -48,9 +48,16 @@ function TasksIndicator(): React.JSX.Element | null {
 export function StatusBar(): React.JSX.Element {
   const cursor = useWorkspaceStore((s) => s.cursor)
   const language = useWorkspaceStore((s) => s.language)
+  const counts = useWorkspaceStore((s) => s.diagnosticCounts)
 
   return (
     <footer className="flex h-[25px] shrink-0 items-center gap-4 rounded-md border border-edge bg-secondary px-3 text-[11px] text-fg-dim">
+      {(counts.errors > 0 || counts.warnings > 0) && (
+        <span className="flex items-center gap-2">
+          {counts.errors > 0 && <span className="text-error">● {counts.errors}</span>}
+          {counts.warnings > 0 && <span className="text-warning">▲ {counts.warnings}</span>}
+        </span>
+      )}
       <TasksIndicator />
       <div className="flex-1" />
       {cursor && (

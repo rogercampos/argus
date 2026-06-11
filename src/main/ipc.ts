@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
 import { startGitMonitor } from './git'
+import { lspManagerFor } from './lsp/manager'
 import { rebuildApplicationMenu } from './menu'
 import {
   fileExists,
@@ -78,9 +79,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('repo:list-files', (_event, root: string) => listFiles(root))
   ipcMain.handle('repo:git-status', (_event, root: string) => gitStatus(root))
   ipcMain.handle('file:read', (_event, root: string, relPath: string) => readFile(root, relPath))
-  ipcMain.handle('file:write', (_event, root: string, relPath: string, content: string) =>
-    writeFile(root, relPath, content)
-  )
+  ipcMain.handle('file:write', async (event, root: string, relPath: string, content: string) => {
+    const result = await writeFile(root, relPath, content)
+    // saved files re-scan in semgrep (spec 12)
+    if (result.ok) {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (window) lspManagerFor(window, root).noteFileSaved(relPath)
+    }
+    return result
+  })
   // global search (spec 03)
   ipcMain.handle('search:start', (event, searchId: number, options: SearchOptions) => {
     const window = BrowserWindow.fromWebContents(event.sender)
@@ -121,6 +128,40 @@ export function registerIpcHandlers(): void {
       }
     }
   )
+
+  // LSP (spec 08)
+  const lsp = (event: Electron.IpcMainInvokeEvent): ReturnType<typeof lspManagerFor> | null => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return null
+    return lspManagerFor(window, eventWorkspace(event))
+  }
+  ipcMain.handle('lsp:did-open', (event, relPath: string, text: string) =>
+    lsp(event)?.didOpen(relPath, text)
+  )
+  ipcMain.handle('lsp:did-change', (event, relPath: string, text: string) =>
+    lsp(event)?.didChange(relPath, text)
+  )
+  ipcMain.handle('lsp:did-close', (event, relPath: string) => lsp(event)?.didClose(relPath))
+  ipcMain.handle('lsp:hover', (event, relPath: string, line: number, character: number) =>
+    lsp(event)?.hover(relPath, line, character)
+  )
+  ipcMain.handle(
+    'lsp:definition',
+    (
+      event,
+      relPath: string,
+      line: number,
+      character: number,
+      kind: 'definition' | 'typeDefinition'
+    ) => lsp(event)?.definition(relPath, line, character, kind)
+  )
+  ipcMain.handle('lsp:completion', (event, relPath: string, line: number, character: number) =>
+    lsp(event)?.completion(relPath, line, character)
+  )
+  ipcMain.handle('lsp:workspace-symbols', (event, query: string) =>
+    lsp(event)?.workspaceSymbols(query)
+  )
+  ipcMain.handle('rails:schema-for', (event, relPath: string) => lsp(event)?.railsSchema(relPath))
 
   ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))
   ipcMain.handle('file:read-abs', (_event, absPath: string) => readFileAbsolute(absPath))
