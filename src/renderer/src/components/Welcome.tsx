@@ -40,17 +40,33 @@ export function Welcome(): React.JSX.Element {
               {recents.map((entry) => {
                 const name = entry.path.split('/').filter(Boolean).pop()
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={entry.path}
-                    onClick={() => void window.api.openWorkspace(entry.path)}
-                    className="flex cursor-pointer items-baseline gap-3 rounded-md px-2.5 py-1.5 text-left hover:bg-hover"
+                    className="group flex items-center rounded-md hover:bg-hover"
                   >
-                    <span className="text-[13px] text-accent">{name}</span>
-                    <span className="truncate font-mono text-[11px] text-fg-dim">
-                      {displayPath(entry.path)}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void window.api.openWorkspace(entry.path)}
+                      className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-3 px-2.5 py-1.5 text-left"
+                    >
+                      <span className="text-[13px] text-accent">{name}</span>
+                      <span className="truncate font-mono text-[11px] text-fg-dim">
+                        {displayPath(entry.path)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Remove from recent workspaces"
+                      onClick={() => {
+                        void window.api.removeRecentWorkspace(entry.path).then(() => {
+                          setRecents((current) => current.filter((e) => e.path !== entry.path))
+                        })
+                      }}
+                      className="shrink-0 cursor-pointer px-2.5 py-1.5 text-[13px] text-fg-dim opacity-0 group-hover:opacity-100 hover:text-error"
+                    >
+                      ×
+                    </button>
+                  </div>
                 )
               })}
             </div>

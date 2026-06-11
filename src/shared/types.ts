@@ -267,6 +267,7 @@ export interface ArgusApi {
   openFolderDialog(): Promise<void>
   openWorkspace(path: string): Promise<void>
   recentWorkspaces(limit: number): Promise<RecentWorkspaceEntry[]>
+  removeRecentWorkspace(path: string): Promise<void>
   onMenuCommand(handler: (command: MenuCommand) => void): () => void
   startWatching(): Promise<void>
   onWatchEvents(handler: (events: WatchEvent[]) => void): () => void

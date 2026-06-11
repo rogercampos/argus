@@ -10,6 +10,7 @@ import {
   loadFileViewState,
   loadRecentWorkspaces,
   loadWorkspaceState,
+  removeRecentWorkspace,
   saveAppState,
   saveFileViewState,
   saveWorkspaceState,
@@ -61,6 +62,18 @@ describe('state persistence', () => {
     await touchRecentWorkspace(join(dir, 'does-not-exist'))
     const list = await listRecentWorkspaces(10)
     expect(list.map((e) => e.path)).toEqual([wsA, wsB])
+  })
+
+  it('removeRecentWorkspace deletes the entry permanently', async () => {
+    await touchRecentWorkspace(wsA)
+    await touchRecentWorkspace(wsB)
+    await removeRecentWorkspace(wsB)
+    const list = await loadRecentWorkspaces()
+    expect(list.map((e) => e.path)).not.toContain(wsB)
+    expect(list.map((e) => e.path)).toContain(wsA)
+    // restore for the following tests
+    await touchRecentWorkspace(wsB)
+    await touchRecentWorkspace(wsA)
   })
 
   it('listRecentWorkspaces respects the limit', async () => {

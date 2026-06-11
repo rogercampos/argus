@@ -33,6 +33,7 @@ const api: ArgusApi = {
   openFolderDialog: () => ipcRenderer.invoke('app:open-folder-dialog'),
   openWorkspace: (path) => ipcRenderer.invoke('app:open-workspace', path),
   recentWorkspaces: (limit) => ipcRenderer.invoke('app:recent-workspaces', limit),
+  removeRecentWorkspace: (path) => ipcRenderer.invoke('app:remove-recent-workspace', path),
   onMenuCommand: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, command: MenuCommand): void =>
       handler(command)

@@ -18,6 +18,7 @@ import {
   listRecentWorkspaces,
   loadFileViewState,
   loadWorkspaceState,
+  removeRecentWorkspace,
   saveFileViewState,
   saveWorkspaceState
 } from './state'
@@ -53,6 +54,10 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('app:recent-workspaces', (_event, limit: number) => listRecentWorkspaces(limit))
   ipcMain.handle('app:slow-ops', () => recordedSlowOps())
+  ipcMain.handle('app:remove-recent-workspace', async (_event, path: string) => {
+    await removeRecentWorkspace(path)
+    void rebuildApplicationMenu() // Open Recent submenu reflects the removal
+  })
 
   // workspace state
   ipcMain.handle('workspace:load-state', (event) => loadWorkspaceState(eventWorkspace(event)))

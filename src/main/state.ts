@@ -68,6 +68,15 @@ export async function touchRecentWorkspace(workspacePath: string): Promise<void>
   )
 }
 
+/** Remove a workspace from the remembered list (welcome window delete). */
+export async function removeRecentWorkspace(workspacePath: string): Promise<void> {
+  const list = await loadRecentWorkspaces()
+  await writeJsonAtomic(
+    join(stateDir(), 'recent-workspaces.json'),
+    list.filter((e) => e.path !== workspacePath)
+  )
+}
+
 /** Recent workspaces whose folder still exists, most recent first. */
 export async function listRecentWorkspaces(limit: number): Promise<RecentWorkspaceEntry[]> {
   const list = await loadRecentWorkspaces()

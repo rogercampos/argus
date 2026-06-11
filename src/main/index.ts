@@ -1,3 +1,4 @@
+import { existsSync, statSync } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow } from 'electron'
 import { registerIpcHandlers } from './ipc'
@@ -16,9 +17,12 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {
-    // A second launch routes here; open a folder argument if present
-    const dirArg = argv.slice(1).find((a) => !a.startsWith('-'))
-    if (dirArg) openWorkspaceWindow(dirArg)
+    // A second launch routes here; open a folder argument if present.
+    // Electron's own args ('.', the app path) must not count as folders.
+    const dirArg = argv
+      .slice(1)
+      .find((a) => a.startsWith('/') && !a.startsWith('--') && existsSync(a))
+    if (dirArg && statSync(dirArg).isDirectory()) openWorkspaceWindow(dirArg)
     else openWelcomeWindow()
   })
 

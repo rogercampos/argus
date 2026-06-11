@@ -54,7 +54,8 @@
   - A **Recent** section listing up to **8** recent workspaces. Each row:
     folder name (normal weight) + full path with `~` substitution (dimmed,
     smaller font). Click opens that workspace — the welcome window closes and
-    a workspace window opens.
+    a workspace window opens. A small **×** on hover removes the entry from
+    the remembered list (persisted; also reflected in `File > Open Recent`).
 - Closing the welcome window **quits the application**.
 - App launch with no CLI arguments and no restorable previous session shows
   the welcome window.
