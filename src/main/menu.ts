@@ -79,7 +79,9 @@ export async function rebuildApplicationMenu(): Promise<void> {
         item('Find', 'find', 'Cmd+F'),
         item('Replace', 'replace', 'Cmd+R'),
         item('Find in Files', 'global-search', 'Cmd+Shift+F'),
-        item('Replace in Files', 'global-replace', 'Cmd+Shift+R')
+        item('Replace in Files', 'global-replace', 'Cmd+Shift+R'),
+        { type: 'separator' },
+        item('Copy Relative Path', 'copy-relative-path', 'Cmd+Shift+C')
       ]
     },
     {

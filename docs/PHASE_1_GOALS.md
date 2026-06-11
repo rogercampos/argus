@@ -115,14 +115,16 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 → Spec: [specs/07-file-tree.md](specs/07-file-tree.md)
 
 - [ ] Virtualized, instant on huge repos (already in place via @pierre/trees).
-- [ ] "Locate current file" button (reveal active editor file in the tree).
-- [ ] Colored file type icons (devicon-style) used consistently across tree,
-      modals, and results.
+- [x] "Locate current file" button (reveal active editor file in the tree).
+- [x] Colored file type icons used consistently across tree, modals, tabs,
+      and results. *(Tree uses @pierre/trees icons; modals/tabs use colored
+      language badges — swappable for devicon SVGs later.)*
 - [x] Git status coloring: modified files in blue, gitignored files dimmed,
       untracked/added states visible.
-- [ ] Starred (pinned) top-level folders shown at the top of the tree.
-- [ ] User-configurable excluded paths (hidden from tree and searches).
-- [ ] Copy path to clipboard shortcut.
+- [x] Starred (pinned) top-level folders shown at the top of the tree.
+- [x] User-configurable excluded paths (hidden from searches and go-to-file;
+      context-menu toggle).
+- [x] Copy path to clipboard shortcut (Cmd+Shift+C + context menu).
 
 ## LSP integration
 
@@ -169,9 +171,8 @@ there is no "open one file"; it's always a folder.
 - [x] Closing every workspace window leaves a minimal welcome window listing
       recently opened workspaces with an easy way to open them (plus an
       "Open Folder" button). Closing that window quits the application.
-- [ ] Per-workspace persistence: open tabs, panel sizes, search tabs, starred
-      folders, recent files. *(Done: tabs, panel sizes, recent files, search
-      tabs. Pending: starred folders.)*
+- [x] Per-workspace persistence: open tabs, panel sizes, search tabs, starred
+      folders, recent files.
 
 **Project** — a sub-unit inside a workspace, for monorepo support. A workspace
 like factorial contains many projects (some Ruby, some JavaScript, some Rust,
@@ -180,8 +181,7 @@ like factorial contains many projects (some Ruby, some JavaScript, some Rust,
 - [x] Detect the projects inside a workspace (by language/tooling markers:
       Gemfile, package.json, Cargo.toml, …).
 - [x] Use detected projects to decide which LSP servers to start, per project.
-- [ ] Show the workspace's projects in the UI. *(Data flows to the renderer;
-      the Projects view itself is pending.)*
+- [x] Show the workspace's projects in the UI.
 
 ## Windows & app lifecycle
 
@@ -294,6 +294,7 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Stage 7 (Tree features + Projects view + icons) done: reveal-active-file (button + View menu) expanding ancestors and centering, starred top-level folders (custom sort + ★ decoration + persistence), tree context menu (Find in Folder scoped search, Copy Path / Relative Path, Reveal in Finder, Star, Exclude), excluded paths filtered from go-to-file, colored file icons in modals/tabs/results, Projects modal with kinds + Rails badge + tool versions. CDP-verified on factorial. |
 | 2026-06-11 | Stage 6 (LSP + quality + Rails) done: per-project LSP manager (ruby-lsp/Sorbet/vtsls/bash-ls/ESLint-LS) with marker-based project detection, ancestor-sharing rule, interactive-login-shell env resolution, auto-install via task UI + 24h auto-update, pull+push diagnostics merged by source; CM wiring for squiggles, hover, completion; go-to-definition with multi-result picker; go-to-symbol modal; problems view pinned in the bottom panel; semgrep runner; Rails schema panel (db/schema.rb parser, auto-shows for model files). CDP-verified: vtsls auto-install→type-error diagnostics→fix-clears cycle, hover/definition, Rails schema panel on alexandria. |
 | 2026-06-11 | Stage 5 (Git + background tasks) done: GitMonitor with branch/repo-state from .git file reads, deferred initial scan, 500ms-debounced targeted rescans, diff-only updates; branch + state in title bar; background task model (started/progress/finished) with status-bar spinner + tasks popup; replace-all reports progress; slow-op logging. CDP-verified: branch follows checkout live, status diffs on create/delete, task lifecycle during replace-all. |
 | 2026-06-11 | Stage 4 (Global search) done: ripgrep streaming backend (150ms batches, 100/1000 caps, gitignore + excluded paths, scoped folders), search modal with selection prefill + flag toggles + folder picker + editable preview, full-width bottom panel with search tabs (re-run on activate, lazy restore, persisted), global replace (single-match through buffers + replace-all with capture groups), in-editor find via CM panel. CDP-verified: streaming on factorial, preview-edit→autosave, replace-all, tab restore. |

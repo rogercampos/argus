@@ -255,6 +255,7 @@ export type MenuCommand =
   | 'open-settings'
   | 'next-tab'
   | 'previous-tab'
+  | 'copy-relative-path'
 
 // --- The typed API exposed to the renderer ---
 
@@ -286,6 +287,7 @@ export interface ArgusApi {
   ): () => void
   onLspProjects(handler: (projects: ProjectInfo[]) => void): () => void
   railsSchemaFor(relPath: string): Promise<RailsSchemaInfo | null>
+  revealInFinder(relPath: string): Promise<void>
 
   onGitState(handler: (state: GitState) => void): () => void
   onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void

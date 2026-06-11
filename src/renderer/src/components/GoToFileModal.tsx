@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RankedItem } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
+import { FileIcon } from './FileIcon'
 import { Highlighted, Modal, ModalRow } from './Modal'
+
+/** Workspace paths minus excluded prefixes (spec 07). */
+function visiblePaths(): string[] {
+  const { paths, excludedPaths } = useWorkspaceStore.getState()
+  if (excludedPaths.length === 0) return paths
+  const prefixes = excludedPaths.map((p) => `${p}/`)
+  return paths.filter((path) => !prefixes.some((prefix) => path.startsWith(prefix)))
+}
 
 const LIMIT = 200
 
@@ -27,7 +36,7 @@ export function GoToFileModal(): React.JSX.Element {
   useEffect(() => {
     const worker = new Worker(new URL('../fuzzyWorker.ts', import.meta.url), { type: 'module' })
     workerRef.current = worker
-    worker.postMessage({ type: 'set', paths: useWorkspaceStore.getState().paths })
+    worker.postMessage({ type: 'set', paths: visiblePaths() })
     worker.onmessage = (
       event: MessageEvent<{ type: string; id: number; items: RankedItem[]; total: number }>
     ) => {
@@ -135,6 +144,7 @@ export function GoToFileModal(): React.JSX.Element {
               onClick={() => open(item.path)}
               onActivate={() => open(item.path)}
             >
+              <FileIcon path={item.path} />
               <span className="truncate">
                 <Highlighted text={name} indices={nameIndices} />
               </span>

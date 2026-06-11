@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useWorkspaceStore } from '../store'
+import { FileIcon } from './FileIcon'
 
 interface ContextMenuState {
   x: number
@@ -46,6 +47,7 @@ export function EditorTabs(): React.JSX.Element | null {
             } ${tab.external ? 'bg-external' : ''}`}
             title={tab.path}
           >
+            <FileIcon path={tab.path} />
             <span>{name}</span>
             {dirty && <span className="h-1.5 w-1.5 rounded-full bg-caret" />}
           </button>

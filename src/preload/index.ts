@@ -56,6 +56,7 @@ const api: ArgusApi = {
   }>('lsp:diagnostics'),
   onLspProjects: makeListener<import('../shared/types').ProjectInfo[]>('lsp:projects'),
   railsSchemaFor: (relPath) => ipcRenderer.invoke('rails:schema-for', relPath),
+  revealInFinder: (relPath) => ipcRenderer.invoke('shell:reveal', relPath),
 
   onGitState: makeListener<GitState>('git:state'),
   onGitStatusDiff: makeListener<GitStatusDiff>('git:status-diff'),

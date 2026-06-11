@@ -11,6 +11,7 @@ import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
 import { GoToLineModal } from './GoToLineModal'
 import { GoToSymbolModal } from './GoToSymbolModal'
+import { ProjectsModal } from './ProjectsModal'
 import { RecentFilesModal } from './RecentFilesModal'
 import { Resizer } from './Resizer'
 import { SchemaPanel } from './SchemaPanel'
@@ -114,6 +115,14 @@ export function WorkspaceShell(): React.JSX.Element {
           openSearchPanel(view)
         }
         break
+      case 'copy-relative-path': {
+        const path = activeTabPath()
+        if (path) void navigator.clipboard.writeText(path)
+        break
+      }
+      case 'show-projects':
+        state.setModal('projects')
+        break
       default:
         // Commands for features from later stages are ignored for now
         break
@@ -155,6 +164,7 @@ export function WorkspaceShell(): React.JSX.Element {
       {openModal === 'recent-files' && <RecentFilesModal />}
       {openModal === 'go-to-line' && <GoToLineModal />}
       {openModal === 'go-to-symbol' && <GoToSymbolModal />}
+      {openModal === 'projects' && <ProjectsModal />}
       {searchModalOpen && <SearchModal />}
       {definitionChoices && <DefinitionPicker choices={definitionChoices} />}
       <TitleBar />

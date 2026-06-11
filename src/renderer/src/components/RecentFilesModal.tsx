@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { fuzzyMatch } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
+import { FileIcon } from './FileIcon'
 import { Highlighted, Modal, ModalRow } from './Modal'
 
 /** Recent Files popup (spec 05): fuzzy filter on filename, intent-based list. */
@@ -78,6 +79,7 @@ export function RecentFilesModal(): React.JSX.Element {
             onClick={() => open(entry.path)}
             onActivate={() => open(entry.path)}
           >
+            <FileIcon path={entry.path} />
             <span className="truncate">
               <Highlighted text={entry.name} indices={entry.indices} />
             </span>

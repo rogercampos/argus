@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { join } from 'node:path'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
 import { startGitMonitor } from './git'
 import { lspManagerFor } from './lsp/manager'
@@ -162,6 +163,10 @@ export function registerIpcHandlers(): void {
     lsp(event)?.workspaceSymbols(query)
   )
   ipcMain.handle('rails:schema-for', (event, relPath: string) => lsp(event)?.railsSchema(relPath))
+
+  ipcMain.handle('shell:reveal', (event, relPath: string) => {
+    shell.showItemInFolder(join(eventWorkspace(event), relPath))
+  })
 
   ipcMain.handle('file:exists', (_event, absPath: string) => fileExists(absPath))
   ipcMain.handle('file:read-abs', (_event, absPath: string) => readFileAbsolute(absPath))

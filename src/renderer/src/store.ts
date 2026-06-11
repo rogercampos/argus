@@ -17,7 +17,13 @@ import { closeOtherTabs, closeTab, cycleTab, MAX_OPEN_TABS, openTab, tabToEvict 
 
 const MAX_RECENT_FILES = 100
 
-export type ModalKind = 'go-to-file' | 'recent-files' | 'go-to-line' | 'go-to-symbol' | null
+export type ModalKind =
+  | 'go-to-file'
+  | 'recent-files'
+  | 'go-to-line'
+  | 'go-to-symbol'
+  | 'projects'
+  | null
 
 interface WorkspaceStore {
   rootPath: string | null
@@ -39,6 +45,7 @@ interface WorkspaceStore {
   openModal: ModalKind
   lastGoToFileQuery: string
   excludedPaths: string[]
+  starredFolders: string[]
   diagnosticCounts: { errors: number; warnings: number }
   projects: ProjectInfo[]
   definitionChoices: LspLocation[] | null
@@ -215,6 +222,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   openModal: null,
   lastGoToFileQuery: '',
   excludedPaths: defaultWorkspaceState().excludedPaths,
+  starredFolders: [],
   diagnosticCounts: { errors: 0, warnings: 0 },
   projects: [],
   definitionChoices: null,
@@ -237,7 +245,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       set({
         panels: stored.panels,
         recentFiles: stored.recentFiles ?? [],
-        excludedPaths: stored.excludedPaths ?? defaultWorkspaceState().excludedPaths
+        excludedPaths: stored.excludedPaths ?? defaultWorkspaceState().excludedPaths,
+        starredFolders: stored.starredFolders ?? []
       })
       // Restore tabs without recency side-effects; only the active doc loads
       const tabs = (stored.editor?.openTabs ?? []).map((t) => ({
