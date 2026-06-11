@@ -9,7 +9,7 @@ import { SearchPreview } from './SearchPreview'
 
 /** Rows of the hierarchical results tree: file headers + matches (spec 03). */
 type TreeRow =
-  | { kind: 'file'; path: string; count: number; collapsed: boolean }
+  | { kind: 'file'; path: string; count: number; collapsed: boolean; firstMatchIndex: number }
   | { kind: 'match'; match: SearchMatch; matchIndex: number }
 
 export function buildTreeRows(tab: SearchTab): TreeRow[] {
@@ -28,7 +28,8 @@ export function buildTreeRows(tab: SearchTab): TreeRow[] {
         kind: 'file',
         path: match.path,
         count: counts.get(match.path) ?? 0,
-        collapsed: fileCollapsed
+        collapsed: fileCollapsed,
+        firstMatchIndex: matchIndex
       })
     }
     if (!fileCollapsed) rows.push({ kind: 'match', match, matchIndex })
@@ -192,7 +193,11 @@ export function SearchPanel(): React.JSX.Element {
               <button
                 type="button"
                 key={`f:${row.path}`}
-                onClick={() => useSearchStore.getState().toggleFileCollapsed(activeTab, row.path)}
+                onClick={() => {
+                  // selecting a file previews its first match (and toggles the group)
+                  useSearchStore.getState().selectTabMatch(activeTab, row.firstMatchIndex)
+                  useSearchStore.getState().toggleFileCollapsed(activeTab, row.path)
+                }}
                 className="flex h-[26px] w-full shrink-0 cursor-pointer items-center gap-1.5 bg-primary/40 px-2 text-left"
               >
                 <span

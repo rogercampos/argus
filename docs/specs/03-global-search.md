@@ -145,8 +145,10 @@ Cmd+Enter. Hosts one **tab per search**.
 | Enter on match row | open in editor tab at that line (panel stays open) |
 | Esc | if preview focused → back to results; else focus editor |
 
-Single click selects (and previews for matches) / toggles (for groups);
-double click on a match opens it in an editor tab.
+Single click on a match selects + previews it. Single click on a file row
+toggles the group AND selects/previews the file's first match (so picking a
+file always shows its preview). Double click on a match opens it in an
+editor tab.
 
 ### Re-evaluation
 
