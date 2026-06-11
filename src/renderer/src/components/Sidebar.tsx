@@ -1,7 +1,7 @@
 import type { ContextMenuItem, ContextMenuOpenContext, FileTreeBatchOperation } from '@pierre/trees'
 import { FileTree as FileTreeModel, preparePresortedFileTreeInput } from '@pierre/trees'
 import { FileTree } from '@pierre/trees/react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, mergePersisted, useWorkspaceStore } from '../store'
 import { makeTreeSort, sortPathsForTree } from '../treeSort'
@@ -85,6 +85,17 @@ function diffOps(
   return ops
 }
 
+/** Star/unstar a top-level folder; the starKey effect re-sorts the tree. */
+function toggleStar(path: string): void {
+  const state = useWorkspaceStore.getState()
+  const starred = state.starredFolders.includes(path)
+  const next = starred
+    ? state.starredFolders.filter((p) => p !== path)
+    : [...state.starredFolders, path]
+  useWorkspaceStore.setState({ starredFolders: next })
+  mergePersisted({ starredFolders: next })
+}
+
 /** Top-level directories currently expanded, to survive a full reset. */
 function expandedTopLevelDirs(model: FileTreeModel, prevPaths: readonly string[]): string[] {
   const topLevel = new Set<string>()
@@ -110,10 +121,14 @@ function workspaceModel(): FileTreeModel {
     flattenEmptyDirectories: true,
     icons: 'standard',
     sort: treeSort,
-    renderRowDecoration: ({ row }) =>
-      row.level === 1 && row.kind === 'directory' && starredRef.current.has(row.path)
-        ? { text: '★', title: 'Starred' }
-        : null,
+    // top-level rows have level 0 and directory paths carry a trailing slash
+    renderRowDecoration: ({ row }) => {
+      if (row.kind !== 'directory') return null
+      const path = row.path.replace(/\/+$/, '')
+      return !path.includes('/') && starredRef.current.has(path)
+        ? { text: '★', title: 'Starred — click to unstar' }
+        : null
+    },
     composition: { contextMenu: { enabled: true, triggerMode: 'right-click' } },
     onSelectionChange: (selectedPaths) => {
       if (suppressSelectionRef.current) return
@@ -213,6 +228,32 @@ export function Sidebar(): React.JSX.Element {
     })
   }, [locate])
 
+  // Clicking the ★ decoration unstars the folder. Decorations have no click
+  // API, so a capture-phase listener intercepts before the row toggles;
+  // composedPath() reaches inside the tree's open shadow DOM.
+  const treeContainerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const container = treeContainerRef.current
+    if (!container) return
+    const onClickCapture = (event: MouseEvent): void => {
+      const composed = event.composedPath()
+      const inDecoration = composed.some(
+        (el) => el instanceof HTMLElement && el.dataset.itemSection === 'decoration'
+      )
+      if (!inDecoration) return
+      const rowEl = composed.find(
+        (el): el is HTMLElement => el instanceof HTMLElement && el.dataset.itemPath !== undefined
+      )
+      const path = rowEl?.dataset.itemPath?.replace(/\/+$/, '')
+      if (!path || path.includes('/')) return
+      if (!useWorkspaceStore.getState().starredFolders.includes(path)) return
+      event.preventDefault()
+      event.stopPropagation()
+      toggleStar(path)
+    }
+    container.addEventListener('click', onClickCapture, true)
+    return () => container.removeEventListener('click', onClickCapture, true)
+  }, [])
 
   const renderContextMenu = useCallback(
     (item: ContextMenuItem, context: ContextMenuOpenContext) => {
@@ -240,17 +281,7 @@ export function Sidebar(): React.JSX.Element {
         ['Reveal in Finder', () => void window.api.revealInFinder(path)]
       )
       if (isFirstLevelDir) {
-        entries.push([
-          starred ? 'Unstar' : 'Star',
-          () => {
-            const next = starred
-              ? state.starredFolders.filter((p) => p !== path)
-              : [...state.starredFolders, path]
-            // starKey change re-sorts via the syncModelPaths effect
-            useWorkspaceStore.setState({ starredFolders: next })
-            mergePersisted({ starredFolders: next })
-          }
-        ])
+        entries.push([starred ? 'Unstar' : 'Star', () => toggleStar(path)])
       }
       entries.push([
         excluded ? 'Remove from Excluded Paths' : 'Exclude from Project',
@@ -302,7 +333,7 @@ export function Sidebar(): React.JSX.Element {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1">
+      <div ref={treeContainerRef} className="min-h-0 flex-1">
         <FileTree model={model} style={{ height: '100%' }} renderContextMenu={renderContextMenu} />
       </div>
     </div>
