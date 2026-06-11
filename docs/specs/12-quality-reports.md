@@ -34,16 +34,11 @@ All quality tools feed the same per-file diagnostics store used by LSP
 
 ## Problems view
 
-A view (tab in the bottom panel area, alongside search tabs — pinned first,
-not closable) listing all current diagnostics:
-
-- Grouped by file (file icon + workspace-relative path + count), groups
-  collapsible, default expanded, sorted by path.
-- Within a group: severity icon, `line:col`, source tag (`eslint`,
-  `semgrep`, `ruby-lsp`…), message. Sorted by severity then line.
-- Click/Enter on a row → open the file at that location.
-- Status bar error/warning counts (spec 02) click through to this view.
-- Live: updates as diagnostics change; counts in headers update.
+**REMOVED (2026-06-11, Roger's decision).** There is no workspace-wide
+problems report and no status-bar error/warning counts. Diagnostics from
+every source (LSP servers, ESLint, semgrep) surface ONLY inside the editor
+view: severity-colored squiggles, error-lens, and the hover tooltip
+(spec 06/08).
 
 ## Acceptance checklist
 

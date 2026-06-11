@@ -59,24 +59,11 @@ export function initLsp(): void {
   if (initialized) return
   initialized = true
 
+  // Diagnostics surface only inside the editor (squiggles + hover) — there
+  // is deliberately no workspace-wide problems report (removed 2026-06-11
+  // by Roger).
   window.api.onLspDiagnostics(({ path, diagnostics }) => {
     diagnosticsByPath.set(path, diagnostics)
-    // diagnostics counts for the status bar
-    let errors = 0
-    let warnings = 0
-    for (const list of diagnosticsByPath.values()) {
-      for (const d of list) {
-        if (d.severity === 1) errors++
-        else if (d.severity === 2) warnings++
-      }
-    }
-    // problems view data: files with diagnostics, sorted by path (spec 12)
-    const problems = [...diagnosticsByPath.entries()]
-      .filter(([, list]) => list.length > 0)
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([p, list]) => ({ path: p, diagnostics: list }))
-    useWorkspaceStore.setState({ diagnosticCounts: { errors, warnings }, problems })
-
     const view = activeView()
     if (view && activeTabPath() === path) applyDiagnosticsToView(view, path)
   })

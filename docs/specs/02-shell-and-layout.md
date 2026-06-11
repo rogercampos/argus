@@ -60,10 +60,7 @@ tree and editor shrink together.
 Height **25px**, background = secondary background color, top border.
 Left → right:
 
-1. **Diagnostics summary**: error icon + count, warning icon + count
-   (workspace-wide, from all received diagnostics). Click → opens the
-   problems view (spec 12). Hidden when zero of both.
-2. **Background task indicator** (spec 10): pulsing gear icon + name of the
+1. **Background task indicator** (spec 10): pulsing gear icon + name of the
    most recent active task. Click toggles the tasks popup. Hidden when idle.
 3. *(spacer)*
 4. **Cursor position**: `line:col` (1-indexed). Click → opens Go to Line

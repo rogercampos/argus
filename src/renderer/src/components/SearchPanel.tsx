@@ -2,7 +2,6 @@ import { useMemo, useRef } from 'react'
 import type { SearchMatch } from '../../../shared/types'
 import { type SearchTab, useSearchStore } from '../searchStore'
 import { useWorkspaceStore } from '../store'
-import { ProblemsView } from './ProblemsView'
 import { Resizer } from './Resizer'
 import { FlagToggle } from './SearchModal'
 import { SearchPreview } from './SearchPreview'
@@ -40,23 +39,11 @@ export function buildTreeRows(tab: SearchTab): TreeRow[] {
 function TabHeader(): React.JSX.Element {
   const tabs = useSearchStore((s) => s.tabs)
   const activeTab = useSearchStore((s) => s.activeTab)
-  const problemsView = useSearchStore((s) => s.problemsView)
-  const problemCount = useWorkspaceStore((s) => s.problems.length)
 
   return (
     <div className="flex h-[32px] shrink-0 items-center overflow-x-auto border-b border-edge [scrollbar-width:none]">
-      {/* Pinned Problems tab (spec 12) */}
-      <button
-        type="button"
-        onClick={() => useSearchStore.getState().showProblems()}
-        className={`flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 text-[11px] ${
-          problemsView ? 'border-caret bg-primary text-white' : 'border-transparent text-fg-dim'
-        }`}
-      >
-        Problems{problemCount > 0 ? ` (${problemCount})` : ''}
-      </button>
       {tabs.map((tab, index) => {
-        const active = index === activeTab && !problemsView
+        const active = index === activeTab
         const title = tab.pattern.length > 30 ? `${tab.pattern.slice(0, 30)}…` : tab.pattern
         return (
           <div
@@ -103,21 +90,19 @@ function TabHeader(): React.JSX.Element {
   )
 }
 
-/** The full-width bottom search panel (spec 03) with a pinned Problems tab. */
+/** The full-width bottom search panel (spec 03). */
 export function SearchPanel(): React.JSX.Element {
   const tabs = useSearchStore((s) => s.tabs)
   const activeTab = useSearchStore((s) => s.activeTab)
-  const problemsView = useSearchStore((s) => s.problemsView)
   const splitRef = useRef<number>(50)
-  const tab = problemsView ? null : (tabs[activeTab] ?? null)
+  const tab = tabs[activeTab] ?? null
 
   const rows = useMemo(() => (tab ? buildTreeRows(tab) : []), [tab])
 
   if (!tab) {
     return (
-      <div className="flex h-full flex-col">
-        <TabHeader />
-        <ProblemsView />
+      <div className="flex h-full items-center justify-center text-[12px] text-fg-dim">
+        No searches yet — Cmd+Shift+F, then ⌘⏎ to pin one here
       </div>
     )
   }

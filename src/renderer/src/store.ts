@@ -47,10 +47,8 @@ interface WorkspaceStore {
   lastGoToFileQuery: string
   excludedPaths: string[]
   starredFolders: string[]
-  diagnosticCounts: { errors: number; warnings: number }
   projects: ProjectInfo[]
   definitionChoices: LspLocation[] | null
-  problems: Array<{ path: string; diagnostics: import('../../shared/types').LspDiagnostic[] }>
   schemaInfo: import('../../shared/types').RailsSchemaInfo | null
 
   init: () => Promise<void>
@@ -224,10 +222,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   lastGoToFileQuery: '',
   excludedPaths: defaultWorkspaceState().excludedPaths,
   starredFolders: [],
-  diagnosticCounts: { errors: 0, warnings: 0 },
   projects: [],
   definitionChoices: null,
-  problems: [],
   schemaInfo: null,
 
   init: async () => {

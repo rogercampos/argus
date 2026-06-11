@@ -57,11 +57,8 @@ interface SearchStore {
   lastPattern: string
   tabs: SearchTab[]
   activeTab: number
-  /** the pinned Problems tab is selected (spec 12) */
-  problemsView: boolean
 
   init: () => Promise<void>
-  showProblems: () => void
   openModal: (replaceMode: boolean) => void
   closeModal: () => void
   setFlags: (update: Partial<SearchFlags>) => void
@@ -135,9 +132,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   lastPattern: '',
   tabs: [],
   activeTab: 0,
-  problemsView: true,
-
-  showProblems: () => set({ problemsView: true }),
 
   init: async () => {
     const stored = await window.api.loadWorkspaceState()
@@ -254,7 +248,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       tabs: [...s.tabs, tab],
       activeTab: s.tabs.length,
       modalOpen: false,
-      problemsView: false,
       lastPattern: s.modalPattern
     })
     useWorkspaceStore.getState().setPanels({ bottomVisible: true })
@@ -268,7 +261,7 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   activateTab: (index) => {
     const tab = get().tabs[index]
     if (!tab) return
-    set({ activeTab: index, problemsView: false })
+    set({ activeTab: index })
     // Re-evaluate on activation so results are always fresh (spec 03)
     get().reRunTab(index)
     persistTabs()
@@ -281,13 +274,17 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
     let active = get().activeTab
     if (index < active) active -= 1
     else if (index === active) active = Math.min(active, tabs.length - 1)
-    set({ tabs, activeTab: Math.max(0, active), problemsView: tabs.length === 0 })
+    set({ tabs, activeTab: Math.max(0, active) })
+    if (tabs.length === 0) {
+      useWorkspaceStore.getState().setPanels({ bottomVisible: false })
+    }
     persistTabs()
   },
 
   closeAllTabs: () => {
     for (const tab of get().tabs) void window.api.cancelSearch(tab.id)
-    set({ tabs: [], activeTab: 0, problemsView: true })
+    set({ tabs: [], activeTab: 0 })
+    useWorkspaceStore.getState().setPanels({ bottomVisible: false })
     persistTabs()
   },
 
