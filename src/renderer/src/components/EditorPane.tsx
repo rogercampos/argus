@@ -102,9 +102,11 @@ export function EditorPane(): React.JSX.Element {
     const view = viewRef.current
     if (!view) return
 
-    // Capture scroll position of the doc we are leaving
+    // Capture the scroll position of the doc currently in the view (also
+    // when re-setting the same doc, e.g. external reloads, so it restores
+    // in place)
     const leaving = shownPathRef.current
-    if (leaving && leaving !== activePath) {
+    if (leaving) {
       const doc = documents.get(leaving)
       if (doc) doc.lastScrollTop = view.scrollDOM.scrollTop
     }
@@ -120,10 +122,13 @@ export function EditorPane(): React.JSX.Element {
     shownPathRef.current = activePath
     applyDiagnosticsToView(view, activePath)
 
-    // Restore scroll: in-session position, else persisted position
-    if (doc.lastScrollTop > 0) {
+    // setState keeps the scroll DOM's position, so always set it: the
+    // in-session position when the doc was shown before, else top — then
+    // any persisted position from a previous session (first open only)
+    if (doc.lastScrollTop !== null) {
       view.scrollDOM.scrollTop = doc.lastScrollTop
     } else {
+      view.scrollDOM.scrollTop = 0
       void window.api.loadFileViewState(activePath).then((stored) => {
         if (!stored || shownPathRef.current !== activePath) return
         const offset = Math.min(stored.cursorOffset, view.state.doc.length)

@@ -15,8 +15,8 @@ export interface ManagedDocument {
   state: EditorState
   extensions: Extension[]
   dirty: boolean
-  /** scrollTop captured when the doc's view was last detached */
-  lastScrollTop: number
+  /** scrollTop captured when the doc's view was last detached; null = never shown this session */
+  lastScrollTop: number | null
   saveTimer: ReturnType<typeof setTimeout> | null
   /** epoch of the last content written by us, to skip self-triggered reloads */
   lastSavedText: string
@@ -84,7 +84,7 @@ export class DocumentManager {
       state: EditorState.create({ doc: content, extensions: baseExtensions }),
       extensions: baseExtensions,
       dirty: false,
-      lastScrollTop: 0,
+      lastScrollTop: null,
       saveTimer: null,
       lastSavedText: content
     }

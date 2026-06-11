@@ -189,7 +189,7 @@ async function saveViewStateFor(path: string): Promise<void> {
   if (!doc) return
   await window.api.saveFileViewState(path, {
     cursorOffset: doc.state.selection.main.head,
-    scrollTop: doc.lastScrollTop
+    scrollTop: doc.lastScrollTop ?? 0
   })
 }
 
