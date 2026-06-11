@@ -73,8 +73,7 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
       60ms keystroke→rendered results on factorial's 98k files.)*
 - [x] Reuses the previous query when reopened (RubyMine behavior).
 - [x] Accepts absolute paths (jump straight to any file on disk).
-- [ ] Large, comfortable modal size; colored file type icons in results.
-      *(Size done; file icons pending an icon system.)*
+- [x] Large, comfortable modal size; colored file type icons in results.
 
 ## Navigation
 
@@ -114,7 +113,7 @@ RubyMine-style "Go to File" (Cmd+Shift+O):
 
 → Spec: [specs/07-file-tree.md](specs/07-file-tree.md)
 
-- [ ] Virtualized, instant on huge repos (already in place via @pierre/trees).
+- [x] Virtualized, instant on huge repos (via @pierre/trees).
 - [x] "Locate current file" button (reveal active editor file in the tree).
 - [x] Colored file type icons used consistently across tree, modals, tabs,
       and results. *(Tree uses @pierre/trees icons; modals/tabs use colored
@@ -214,8 +213,8 @@ and [specs/02-shell-and-layout.md](specs/02-shell-and-layout.md)
 → Spec: [specs/10-background-tasks.md](specs/10-background-tasks.md)
 
 - [x] Central UI for pending background tasks; current task in the status bar.
-- [ ] Report of slow operations (instrumentation to catch UI-blocking work).
-      *(Main-process slow-op logging in place; viewer UI pending.)*
+- [x] Report of slow operations (instrumentation to catch UI-blocking work).
+      *(Main-process timing + Help > Show Slow Operations viewer.)*
 
 ## Design & keybindings
 
@@ -226,7 +225,10 @@ and [specs/14-keybindings.md](specs/14-keybindings.md)
       Gradient background shell, tuned editor tab styles, `~` for home dir
       everywhere, resizable modals. *(Editor tab styles + modals land with
       their features.)*
-- [ ] RubyMine keymap (macOS only). Core bindings (full table in spec 14):
+- [x] RubyMine keymap (macOS only). Core bindings (full table in spec 14).
+      *(Bound and working except bindings whose features are not yet
+      implemented: Alt+Enter quick fixes, Shift+F6 rename, Format Document,
+      F2 diagnostics navigation — these are LSP follow-ups.)*
 
   | Shortcut | Action |
   | --- | --- |
@@ -294,6 +296,7 @@ wanted here:
 | 2026-06-10 | Project scaffolded (Electron, React, Tailwind, @pierre/trees, CodeMirror 6). Virtualized file tree browsing 98k-file repo verified. |
 | 2026-06-11 | Functional specs written for all goals under docs/specs/ (16 files), mined from the sourcedelve implementation. Scope locked: macOS only, dark theme only. |
 | 2026-06-11 | Stage 1 (Foundations) done: design tokens + Inter/JetBrains Mono + gradient shell, 3-panel layout with resize/toggle persistence, native menu bar with Open Recent, one-workspace-per-window + welcome window + session restore + single instance, JSON persistence with atomic writes. Verified via CDP on the real app. |
+| 2026-06-11 | Phase 1 goal sweep complete: slow-ops viewer (Help menu) added; every goal checked off except LSP follow-ups noted inline (quick fixes, rename, format document). |
 | 2026-06-11 | Stage 7 (Tree features + Projects view + icons) done: reveal-active-file (button + View menu) expanding ancestors and centering, starred top-level folders (custom sort + ★ decoration + persistence), tree context menu (Find in Folder scoped search, Copy Path / Relative Path, Reveal in Finder, Star, Exclude), excluded paths filtered from go-to-file, colored file icons in modals/tabs/results, Projects modal with kinds + Rails badge + tool versions. CDP-verified on factorial. |
 | 2026-06-11 | Stage 6 (LSP + quality + Rails) done: per-project LSP manager (ruby-lsp/Sorbet/vtsls/bash-ls/ESLint-LS) with marker-based project detection, ancestor-sharing rule, interactive-login-shell env resolution, auto-install via task UI + 24h auto-update, pull+push diagnostics merged by source; CM wiring for squiggles, hover, completion; go-to-definition with multi-result picker; go-to-symbol modal; problems view pinned in the bottom panel; semgrep runner; Rails schema panel (db/schema.rb parser, auto-shows for model files). CDP-verified: vtsls auto-install→type-error diagnostics→fix-clears cycle, hover/definition, Rails schema panel on alexandria. |
 | 2026-06-11 | Stage 5 (Git + background tasks) done: GitMonitor with branch/repo-state from .git file reads, deferred initial scan, 500ms-debounced targeted rescans, diff-only updates; branch + state in title bar; background task model (started/progress/finished) with status-bar spinner + tasks popup; replace-all reports progress; slow-op logging. CDP-verified: branch follows checkout live, status diffs on create/delete, task lifecycle during replace-all. |

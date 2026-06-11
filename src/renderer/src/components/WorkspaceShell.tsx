@@ -18,6 +18,7 @@ import { SchemaPanel } from './SchemaPanel'
 import { SearchModal } from './SearchModal'
 import { SearchPanel } from './SearchPanel'
 import { Sidebar } from './Sidebar'
+import { SlowOpsModal } from './SlowOpsModal'
 import { StatusBar } from './StatusBar'
 import { TitleBar } from './TitleBar'
 
@@ -123,6 +124,9 @@ export function WorkspaceShell(): React.JSX.Element {
       case 'show-projects':
         state.setModal('projects')
         break
+      case 'show-slow-ops':
+        state.setModal('slow-ops')
+        break
       default:
         // Commands for features from later stages are ignored for now
         break
@@ -165,6 +169,7 @@ export function WorkspaceShell(): React.JSX.Element {
       {openModal === 'go-to-line' && <GoToLineModal />}
       {openModal === 'go-to-symbol' && <GoToSymbolModal />}
       {openModal === 'projects' && <ProjectsModal />}
+      {openModal === 'slow-ops' && <SlowOpsModal />}
       {searchModalOpen && <SearchModal />}
       {definitionChoices && <DefinitionPicker choices={definitionChoices} />}
       <TitleBar />

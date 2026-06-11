@@ -145,7 +145,8 @@ export async function rebuildApplicationMenu(): Promise<void> {
           click: () => {
             void import('electron').then(({ shell }) => shell.openPath(app.getPath('logs')))
           }
-        }
+        },
+        item('Show Slow Operations', 'show-slow-ops')
       ]
     }
   ]

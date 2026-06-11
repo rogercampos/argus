@@ -33,7 +33,20 @@ export function startTask(window: BrowserWindow | null, name: string): TaskHandl
   }
 }
 
-/** Times an operation and logs a slow-op warning over the threshold (spec 10). */
+export interface SlowOpEntry {
+  time: number
+  operation: string
+  ms: number
+}
+
+const slowOps: SlowOpEntry[] = []
+const MAX_SLOW_OPS = 200
+
+export function recordedSlowOps(): SlowOpEntry[] {
+  return [...slowOps].reverse() // most recent first
+}
+
+/** Times an operation; records + logs a slow-op over the threshold (spec 10). */
 export async function timed<T>(
   operation: string,
   thresholdMs: number,
@@ -46,6 +59,8 @@ export async function timed<T>(
     const elapsed = Date.now() - start
     if (elapsed > thresholdMs) {
       console.warn(`[slow-op] ${operation} took ${elapsed}ms`)
+      slowOps.push({ time: Date.now(), operation, ms: elapsed })
+      if (slowOps.length > MAX_SLOW_OPS) slowOps.shift()
     }
   }
 }

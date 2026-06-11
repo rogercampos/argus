@@ -23,6 +23,7 @@ export type ModalKind =
   | 'go-to-line'
   | 'go-to-symbol'
   | 'projects'
+  | 'slow-ops'
   | null
 
 interface WorkspaceStore {

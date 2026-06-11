@@ -256,6 +256,7 @@ export type MenuCommand =
   | 'next-tab'
   | 'previous-tab'
   | 'copy-relative-path'
+  | 'show-slow-ops'
 
 // --- The typed API exposed to the renderer ---
 
@@ -288,6 +289,7 @@ export interface ArgusApi {
   onLspProjects(handler: (projects: ProjectInfo[]) => void): () => void
   railsSchemaFor(relPath: string): Promise<RailsSchemaInfo | null>
   revealInFinder(relPath: string): Promise<void>
+  slowOps(): Promise<Array<{ time: number; operation: string; ms: number }>>
 
   onGitState(handler: (state: GitState) => void): () => void
   onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void

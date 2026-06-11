@@ -21,7 +21,7 @@ import {
   saveFileViewState,
   saveWorkspaceState
 } from './state'
-import { startTask, timed } from './tasks'
+import { recordedSlowOps, startTask, timed } from './tasks'
 import { startWatching } from './watcher'
 import { openWorkspaceWindow, workspaceForWindow } from './windows'
 
@@ -52,6 +52,7 @@ export function registerIpcHandlers(): void {
     void rebuildApplicationMenu()
   })
   ipcMain.handle('app:recent-workspaces', (_event, limit: number) => listRecentWorkspaces(limit))
+  ipcMain.handle('app:slow-ops', () => recordedSlowOps())
 
   // workspace state
   ipcMain.handle('workspace:load-state', (event) => loadWorkspaceState(eventWorkspace(event)))
