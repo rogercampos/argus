@@ -37,6 +37,46 @@ export async function listFiles(root: string): Promise<string[]> {
   }
 }
 
+/**
+ * Top-level entries only (directories with a trailing slash), for an instant
+ * first paint of the file tree while the full `git ls-files` (seconds on
+ * ~100k-file repos) is still running. Git-ignored entries are filtered with
+ * one cheap `check-ignore` call so they don't flash and disappear.
+ */
+export async function listTopLevel(root: string): Promise<string[]> {
+  let entries: Dirent[]
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const names = entries
+    .filter((e) => e.name !== '.git' && (e.isDirectory() || e.isFile()))
+    .map((e) => (e.isDirectory() ? `${e.name}/` : e.name))
+  if (names.length === 0) return []
+  try {
+    const { stdout } = await trackedExecFile(
+      'git',
+      [
+        '-C',
+        root,
+        '-c',
+        'core.quotepath=off',
+        'check-ignore',
+        '--',
+        ...names.map((n) => n.replace(/\/$/, ''))
+      ],
+      { maxBuffer: 16 * 1024 * 1024 },
+      { kind: 'git', label: 'git check-ignore' }
+    )
+    const ignored = new Set(stdout.split('\n').filter(Boolean))
+    return names.filter((n) => !ignored.has(n.replace(/\/$/, '')))
+  } catch {
+    // exit 1 = nothing ignored; exit 128 = not a git repo — show everything
+    return names
+  }
+}
+
 async function walkDirectory(root: string): Promise<string[]> {
   const results: string[] = []
   const pending: string[] = ['']

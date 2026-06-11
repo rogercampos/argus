@@ -1,12 +1,12 @@
-import type { ContextMenuItem, ContextMenuOpenContext } from '@pierre/trees'
-import { prepareFileTreeInput } from '@pierre/trees'
-import { FileTree, useFileTree } from '@pierre/trees/react'
+import type { ContextMenuItem, ContextMenuOpenContext, FileTreeBatchOperation } from '@pierre/trees'
+import { FileTree as FileTreeModel, preparePresortedFileTreeInput } from '@pierre/trees'
+import { FileTree } from '@pierre/trees/react'
 import { useCallback, useEffect } from 'react'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, mergePersisted, useWorkspaceStore } from '../store'
-import { makeTreeSort } from '../treeSort'
+import { makeTreeSort, sortPathsForTree } from '../treeSort'
 
-/** Mutable star set read by the sort comparator (resetPaths re-sorts). */
+/** Mutable star set read by the sort comparator. */
 const starredRef = { current: new Set<string>() }
 
 /** True while locate() rewrites the selection programmatically. */
@@ -14,19 +14,96 @@ const suppressSelectionRef = { current: false }
 
 const treeSort = makeTreeSort(() => starredRef.current)
 
-const prepare = (paths: readonly string[]): ReturnType<typeof prepareFileTreeInput> =>
-  prepareFileTreeInput(paths, { flattenEmptyDirectories: true, sort: treeSort })
+/**
+ * One tree model per window, kept alive across panel toggles: tree
+ * preparation runs for seconds on ~100k-path repos, so unmounting must not
+ * discard it. Reopening also preserves expansion and scroll state.
+ */
+let sharedModel: FileTreeModel | null = null
+/** Path list the model currently displays (identity-compared). */
+let appliedPaths: readonly string[] | null = null
+let appliedStarKey: string | null = null
+let syncGeneration = 0
 
-export function Sidebar(): React.JSX.Element {
-  const paths = useWorkspaceStore((s) => s.paths)
-  const gitStatus = useWorkspaceStore((s) => s.gitStatus)
-  const loadingTree = useWorkspaceStore((s) => s.loadingTree)
-  const rootName = useWorkspaceStore((s) => s.rootName)
-  const starredFolders = useWorkspaceStore((s) => s.starredFolders)
+/** Path-list changes small enough for batch mutations (preserves expansion). */
+const MAX_BATCH_OPS = 200
 
-  starredRef.current = new Set(starredFolders)
+let sortWorker: Worker | null = null
+let sortRequestId = 0
 
-  const { model } = useFileTree({
+/** Sort into tree order off the UI thread; falls back to inline sorting. */
+function sortInWorker(paths: readonly string[], starred: readonly string[]): Promise<string[]> {
+  try {
+    sortWorker ??= new Worker(new URL('../treeSortWorker.ts', import.meta.url), { type: 'module' })
+  } catch {
+    return Promise.resolve(sortPathsForTree(paths, new Set(starred)))
+  }
+  const worker = sortWorker
+  return new Promise((resolve) => {
+    const id = ++sortRequestId
+    const cleanup = (): void => {
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+    }
+    const onMessage = (event: MessageEvent<{ id: number; sorted: string[] }>): void => {
+      if (event.data.id !== id) return
+      cleanup()
+      resolve(event.data.sorted)
+    }
+    const onError = (): void => {
+      cleanup()
+      sortWorker = null
+      resolve(sortPathsForTree(paths, new Set(starred)))
+    }
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+    worker.postMessage({ id, paths, starred })
+  })
+}
+
+/** Adds/removes between two path lists, or null when too many for a batch. */
+function diffOps(
+  prev: readonly string[],
+  next: readonly string[]
+): FileTreeBatchOperation[] | null {
+  if (Math.abs(prev.length - next.length) > MAX_BATCH_OPS) return null
+  const prevSet = new Set(prev)
+  const nextSet = new Set(next)
+  const ops: FileTreeBatchOperation[] = []
+  for (const path of next) {
+    if (!prevSet.has(path)) {
+      ops.push({ type: 'add', path })
+      if (ops.length > MAX_BATCH_OPS) return null
+    }
+  }
+  for (const path of prev) {
+    if (!nextSet.has(path)) {
+      ops.push({ type: 'remove', path, recursive: true })
+      if (ops.length > MAX_BATCH_OPS) return null
+    }
+  }
+  return ops
+}
+
+/** Top-level directories currently expanded, to survive a full reset. */
+function expandedTopLevelDirs(model: FileTreeModel, prevPaths: readonly string[]): string[] {
+  const topLevel = new Set<string>()
+  for (const path of prevPaths) {
+    const slash = path.indexOf('/')
+    if (slash > 0) topLevel.add(path.slice(0, slash))
+  }
+  const expanded: string[] = []
+  for (const dir of topLevel) {
+    const item = model.getItem(dir)
+    if (item && 'isExpanded' in item && (item as { isExpanded(): boolean }).isExpanded()) {
+      expanded.push(dir)
+    }
+  }
+  return expanded
+}
+
+function workspaceModel(): FileTreeModel {
+  sharedModel ??= new FileTreeModel({
     paths: [],
     search: true,
     initialExpansion: 'closed',
@@ -46,10 +123,61 @@ export function Sidebar(): React.JSX.Element {
       }
     }
   })
+  return sharedModel
+}
+
+/**
+ * Bring the model in line with the store's path list, as cheaply as possible:
+ * no-op when nothing changed; batch mutations for small diffs (watcher
+ * relists — preserves expansion); otherwise a full rebuild through the
+ * worker sort + the library's presorted fast path. Passing only
+ * preparedInput to resetPaths matters: passing paths too makes the library
+ * re-sort the whole list again just to validate they match.
+ */
+function syncModelPaths(model: FileTreeModel, paths: readonly string[], starKey: string): void {
+  if (appliedPaths === paths && appliedStarKey === starKey) return
+  const generation = ++syncGeneration
+
+  if (appliedPaths !== null && appliedStarKey === starKey) {
+    const ops = diffOps(appliedPaths, paths)
+    if (ops) {
+      try {
+        if (ops.length > 0) model.batch(ops)
+        appliedPaths = paths
+        return
+      } catch {
+        // model/list drift: fall through to the full rebuild
+      }
+    }
+  }
+
+  void sortInWorker(paths, [...starredRef.current]).then((sorted) => {
+    if (generation !== syncGeneration) return // superseded
+    const initialExpandedPaths = expandedTopLevelDirs(model, appliedPaths ?? [])
+    model.resetPaths(null as unknown as readonly string[], {
+      preparedInput: preparePresortedFileTreeInput(sorted),
+      initialExpandedPaths
+    })
+    appliedPaths = paths
+    appliedStarKey = starKey
+  })
+}
+
+export function Sidebar(): React.JSX.Element {
+  const paths = useWorkspaceStore((s) => s.paths)
+  const gitStatus = useWorkspaceStore((s) => s.gitStatus)
+  const loadingTree = useWorkspaceStore((s) => s.loadingTree)
+  const rootName = useWorkspaceStore((s) => s.rootName)
+  const starredFolders = useWorkspaceStore((s) => s.starredFolders)
+
+  starredRef.current = new Set(starredFolders)
+  const starKey = starredFolders.join('\n')
+
+  const model = workspaceModel()
 
   useEffect(() => {
-    model.resetPaths(paths, { preparedInput: prepare(paths) })
-  }, [model, paths])
+    syncModelPaths(model, paths, starKey)
+  }, [model, paths, starKey])
 
   useEffect(() => {
     model.setGitStatus(gitStatus)
@@ -85,6 +213,7 @@ export function Sidebar(): React.JSX.Element {
     })
   }, [locate])
 
+
   const renderContextMenu = useCallback(
     (item: ContextMenuItem, context: ContextMenuOpenContext) => {
       const state = useWorkspaceStore.getState()
@@ -117,12 +246,9 @@ export function Sidebar(): React.JSX.Element {
             const next = starred
               ? state.starredFolders.filter((p) => p !== path)
               : [...state.starredFolders, path]
+            // starKey change re-sorts via the syncModelPaths effect
             useWorkspaceStore.setState({ starredFolders: next })
             mergePersisted({ starredFolders: next })
-            // re-sort with the new stars
-            starredRef.current = new Set(next)
-            const { paths } = useWorkspaceStore.getState()
-            model.resetPaths(paths, { preparedInput: prepare(paths) })
           }
         ])
       }
@@ -155,7 +281,7 @@ export function Sidebar(): React.JSX.Element {
         </div>
       )
     },
-    [model]
+    []
   )
 
   return (

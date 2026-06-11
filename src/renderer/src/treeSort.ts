@@ -13,14 +13,45 @@ export interface TreeSortEntry {
   segments: readonly string[]
 }
 
+// One shared collator: localeCompare with options builds a collator per call,
+// which dominates tree preparation on ~100k-path repos (4x slower overall)
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'accent' })
+
 function naturalCompare(a: string, b: string): number {
-  const result = a.toLowerCase().localeCompare(b.toLowerCase(), undefined, { numeric: true })
+  const result = collator.compare(a, b)
   if (result !== 0) return result
   return a < b ? -1 : a > b ? 1 : 0
 }
 
 function isDirAtDepth(entry: TreeSortEntry, depth: number): boolean {
   return depth < entry.segments.length - 1 || entry.isDirectory
+}
+
+/**
+ * Sort a raw path list (files, or directories with a trailing slash) into
+ * the exact tree display order. The result feeds the library's presorted
+ * fast path, which skips per-path parsing and comparator sorting entirely.
+ * Runs in a worker (treeSortWorker) so big repos don't block the UI thread.
+ */
+export function sortPathsForTree(paths: readonly string[], starred: ReadonlySet<string>): string[] {
+  const compare = makeTreeSort(() => starred)
+  const entries = paths.map((path) => {
+    const isDirectory = path.endsWith('/')
+    const clean = isDirectory ? path.slice(0, -1) : path
+    const segments = clean.split('/')
+    return {
+      path,
+      entry: {
+        path: clean,
+        segments,
+        basename: segments[segments.length - 1],
+        depth: segments.length,
+        isDirectory
+      }
+    }
+  })
+  entries.sort((a, b) => compare(a.entry, b.entry))
+  return entries.map((e) => e.path)
 }
 
 export function makeTreeSort(

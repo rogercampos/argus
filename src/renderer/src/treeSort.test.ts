@@ -1,5 +1,6 @@
+import { prepareFileTreeInput } from '@pierre/trees'
 import { describe, expect, it } from 'vitest'
-import { makeTreeSort, type TreeSortEntry } from './treeSort'
+import { makeTreeSort, sortPathsForTree, type TreeSortEntry } from './treeSort'
 
 function entry(path: string, isDirectory = false): TreeSortEntry {
   const segments = path.split('/')
@@ -79,6 +80,29 @@ describe('tree sort comparator (spec 07)', () => {
       .sort(starred)
       .map((e) => e.path)
     expect(sorted).toEqual(['app/alpha/a.ts', 'app/zeta/z.ts'])
+  })
+
+  it('sortPathsForTree matches the library prepared ordering exactly', () => {
+    const paths = [
+      'src/main/index.ts',
+      'package.json',
+      'src/renderer/src/App.tsx',
+      'docs/specs/01.md',
+      'empty-dir/',
+      'README.md',
+      'src/main/repo.ts',
+      'zeta/z.ts',
+      'File2.ts',
+      'file10.ts',
+      'file1.ts',
+      '.vscode/settings.json'
+    ]
+    const starred = new Set(['zeta'])
+    const prepared = prepareFileTreeInput(paths, {
+      flattenEmptyDirectories: true,
+      sort: makeTreeSort(() => starred)
+    })
+    expect(sortPathsForTree(paths, starred)).toEqual(prepared.paths)
   })
 
   it('is consistent on a large shuffled corpus', () => {

@@ -8,6 +8,7 @@ import {
   fileExists,
   gitStatus,
   listFiles,
+  listTopLevel,
   readFile,
   readFileAbsolute,
   writeFile,
@@ -84,6 +85,7 @@ export function registerIpcHandlers(): void {
 
   // repo
   ipcMain.handle('repo:list-files', (_event, root: string) => listFiles(root))
+  ipcMain.handle('repo:list-top-level', (_event, root: string) => listTopLevel(root))
   ipcMain.handle('repo:git-status', (_event, root: string) => gitStatus(root))
   ipcMain.handle('file:read', (_event, root: string, relPath: string) => readFile(root, relPath))
   ipcMain.handle('file:write', async (event, root: string, relPath: string, content: string) => {

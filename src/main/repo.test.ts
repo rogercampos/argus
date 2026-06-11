@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { gitStatus, listFiles, readFile, writeFile } from './repo'
+import { gitStatus, listFiles, listTopLevel, readFile, writeFile } from './repo'
 
 function git(root: string, ...args: string[]): void {
   execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' })
@@ -33,6 +33,15 @@ describe('repo', () => {
 
   afterAll(() => {
     rmSync(root, { recursive: true, force: true })
+  })
+
+  it('lists top-level entries with trailing slash on dirs, hiding ignored ones', async () => {
+    const entries = await listTopLevel(root)
+    expect(entries).toContain('README.md')
+    expect(entries).toContain('src/')
+    expect(entries).toContain('.gitignore')
+    expect(entries).not.toContain('ignored.log')
+    expect(entries).not.toContain('.git/')
   })
 
   it('lists tracked and untracked files, respecting .gitignore', async () => {

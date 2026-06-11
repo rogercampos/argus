@@ -253,6 +253,18 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const rootName = root.split('/').filter(Boolean).pop() ?? root
     set({ rootPath: root, rootName, loadingTree: true })
 
+    // instant first paint: top-level entries render while the full
+    // `git ls-files` listing (seconds on ~100k-file repos) is in flight
+    void window.api.listTopLevel(root).then((topLevel) => {
+      const state = get()
+      if (state.loadingTree && state.paths.length === 0 && topLevel.length > 0) {
+        set({
+          paths: topLevel,
+          filePaths: new Set(topLevel.filter((p) => !p.endsWith('/')))
+        })
+      }
+    })
+
     documents.onDirtyChange((path, dirty) => {
       set({ dirtyPaths: { ...get().dirtyPaths, [path]: dirty } })
     })

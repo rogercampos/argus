@@ -353,6 +353,8 @@ export interface ArgusApi {
 
   // repo
   listFiles(root: string): Promise<string[]>
+  /** top-level entries only, dirs with trailing slash (instant tree paint) */
+  listTopLevel(root: string): Promise<string[]>
   gitStatus(root: string): Promise<GitStatusEntry[]>
   readFile(root: string, relPath: string): Promise<FileReadResult>
   writeFile(root: string, relPath: string, content: string): Promise<FileWriteResult>
