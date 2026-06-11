@@ -158,6 +158,14 @@ body {
   color: var(--color-orangex);
 }
 
+/* Cmd+hover go-to-definition affordance */
+.argus-cmd-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

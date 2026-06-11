@@ -28,6 +28,7 @@ export function WorkspaceShell(): React.JSX.Element {
   const panels = useWorkspaceStore((s) => s.panels)
   const setPanels = useWorkspaceStore((s) => s.setPanels)
   const fileError = useWorkspaceStore((s) => s.fileError)
+  const notice = useWorkspaceStore((s) => s.notice)
 
   useEffect(() => {
     useTasksStore.getState().init()
@@ -198,6 +199,11 @@ export function WorkspaceShell(): React.JSX.Element {
             </>
           )}
           <main className="relative min-w-0 flex-1 overflow-hidden rounded-md border border-edge bg-primary">
+            {notice && (
+              <div className="absolute top-10 left-1/2 z-30 -translate-x-1/2 rounded-md border border-edge bg-secondary px-3 py-1.5 text-[12px] text-fg-dim shadow-[0_4px_16px_rgba(0,0,0,.4)]">
+                {notice}
+              </div>
+            )}
             {fileError && (
               <button
                 type="button"

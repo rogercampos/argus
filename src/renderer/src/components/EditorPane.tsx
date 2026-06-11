@@ -11,7 +11,7 @@ import { basicSetup } from 'codemirror'
 import { useEffect, useRef } from 'react'
 import { argusKeymap } from '../editorKeymap'
 import { argusEditorTheme } from '../editorTheme'
-import { applyDiagnosticsToView, lspExtensions } from '../lsp'
+import { applyDiagnosticsToView, cmdClickDefinition, lspExtensions } from '../lsp'
 import { rubyHighlight } from '../ruby/rubyHighlight'
 import { documents, registerActiveView, setExtensionsBuilder, useWorkspaceStore } from '../store'
 import { EditorTabs } from './EditorTabs'
@@ -68,7 +68,8 @@ function buildExtensions(path: string): Extension[] {
     sync,
     ...argusEditorTheme,
     ...languageFor(path),
-    ...lspExtensions(path)
+    ...lspExtensions(path),
+    cmdClickDefinition()
   ]
 }
 

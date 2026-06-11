@@ -3,6 +3,7 @@ import './assets/main.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { gotoDefinition } from './lsp'
 import { useSearchStore } from './searchStore'
 import { activeView, documents, useWorkspaceStore } from './store'
 import { useTasksStore } from './tasksStore'
@@ -17,7 +18,8 @@ if (import.meta.env.DEV) {
     searchStore: useSearchStore,
     tasksStore: useTasksStore,
     documents,
-    activeView
+    activeView,
+    gotoDefinition
   }
 }
 

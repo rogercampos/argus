@@ -67,6 +67,9 @@ interface WorkspaceStore {
   cycleTabs: (delta: 1 | -1) => Promise<void>
   setPanels: (update: Partial<PanelLayoutState>) => void
   setCursor: (cursor: { line: number; col: number } | null) => void
+  /** transient, auto-dismissing status message (e.g. "No definition found") */
+  notice: string | null
+  showNotice: (message: string) => void
 }
 
 export const documents = new DocumentManager(
@@ -464,7 +467,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     schedulePersist()
   },
 
-  setCursor: (cursor) => set({ cursor })
+  setCursor: (cursor) => set({ cursor }),
+
+  notice: null,
+  showNotice: (message) => {
+    set({ notice: message })
+    setTimeout(() => {
+      if (get().notice === message) set({ notice: null })
+    }, 2500)
+  }
 }))
 
 /** The currently mounted EditorView, registered by EditorPane. */
