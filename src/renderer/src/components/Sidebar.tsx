@@ -116,7 +116,7 @@ function expandedTopLevelDirs(model: FileTreeModel, prevPaths: readonly string[]
 function workspaceModel(): FileTreeModel {
   sharedModel ??= new FileTreeModel({
     paths: [],
-    search: true,
+    search: false, // Go to File (Cmd+Shift+O) is the project's own file search
     initialExpansion: 'closed',
     flattenEmptyDirectories: true,
     icons: 'standard',
