@@ -1,5 +1,6 @@
-import { useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { SearchMatch } from '../../../shared/types'
+import { type LineSpan, lineSpansFor, onLineHighlightReady } from '../lineHighlight'
 import { type SearchTab, useSearchStore } from '../searchStore'
 import { useWorkspaceStore } from '../store'
 import { Resizer } from './Resizer'
@@ -35,6 +36,81 @@ export function buildTreeRows(tab: SearchTab): TreeRow[] {
   })
   return rows
 }
+
+interface LineSegment {
+  from: number
+  text: string
+  className: string | null
+  matched: boolean
+}
+
+/** Split a line into render segments: syntax spans cut at match bounds. */
+export function buildSegments(
+  text: string,
+  spans: LineSpan[],
+  sub: { start: number; end: number } | null
+): LineSegment[] {
+  const cuts = new Set([0, text.length])
+  for (const span of spans) {
+    cuts.add(span.from)
+    cuts.add(span.to)
+  }
+  if (sub) {
+    cuts.add(Math.max(0, sub.start))
+    cuts.add(Math.min(text.length, sub.end))
+  }
+  const points = [...cuts].filter((p) => p >= 0 && p <= text.length).sort((a, b) => a - b)
+  const segments: LineSegment[] = []
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i]
+    const to = points[i + 1]
+    const span = spans.find((s) => s.from <= from && s.to >= to)
+    segments.push({
+      from,
+      text: text.slice(from, to),
+      className: span?.className ?? null,
+      matched: sub ? from >= sub.start && to <= sub.end : false
+    })
+  }
+  return segments
+}
+
+/** One result line, syntax-highlighted, with the match emphasized. Memoized:
+ * selection changes re-render the list but skip unchanged rows. */
+const HighlightedMatchText = memo(function HighlightedMatchText({
+  match
+}: {
+  match: SearchMatch
+}): React.JSX.Element {
+  const [, bump] = useReducer((c: number) => c + 1, 0)
+  const spans = lineSpansFor(match.path, match.text)
+
+  // null = grammar still loading (ruby wasm); re-render once it's ready
+  useEffect(() => {
+    if (spans !== null) return undefined
+    return onLineHighlightReady(bump)
+  }, [spans])
+
+  const segments = useMemo(
+    () => buildSegments(match.text, spans ?? [], match.submatches[0] ?? null),
+    [match, spans]
+  )
+
+  return (
+    <span className="truncate font-mono text-[11px]">
+      {segments.map((seg) => (
+        <span
+          key={seg.from}
+          className={
+            seg.matched ? 'rounded-sm bg-warning/30 text-warning' : (seg.className ?? undefined)
+          }
+        >
+          {seg.text}
+        </span>
+      ))}
+    </span>
+  )
+})
 
 function TabHeader(): React.JSX.Element {
   const tabs = useSearchStore((s) => s.tabs)
@@ -221,22 +297,7 @@ export function SearchPanel(): React.JSX.Element {
                 }`}
               >
                 <span className="shrink-0 font-mono text-[10px] text-fg-dim">{row.match.line}</span>
-                <span className="truncate font-mono text-[11px]">
-                  {row.match.submatches[0] ? (
-                    <>
-                      {row.match.text.slice(0, row.match.submatches[0].start)}
-                      <span className="rounded-sm bg-warning/30 text-warning">
-                        {row.match.text.slice(
-                          row.match.submatches[0].start,
-                          row.match.submatches[0].end
-                        )}
-                      </span>
-                      {row.match.text.slice(row.match.submatches[0].end)}
-                    </>
-                  ) : (
-                    row.match.text
-                  )}
-                </span>
+                <HighlightedMatchText match={row.match} />
               </button>
             )
           )}

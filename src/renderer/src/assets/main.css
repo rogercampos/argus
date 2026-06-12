@@ -157,6 +157,13 @@ body {
 .tsh-escape {
   color: var(--color-orangex);
 }
+.tsh-operator {
+  color: var(--color-fg);
+}
+.tsh-invalid {
+  color: var(--color-error);
+  text-decoration: underline;
+}
 
 /* Cmd+hover go-to-definition affordance */
 .argus-cmd-link {

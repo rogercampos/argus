@@ -1,9 +1,3 @@
-import { css } from '@codemirror/lang-css'
-import { html } from '@codemirror/lang-html'
-import { javascript } from '@codemirror/lang-javascript'
-import { json } from '@codemirror/lang-json'
-import { markdown } from '@codemirror/lang-markdown'
-import { python } from '@codemirror/lang-python'
 import { highlightSelectionMatches } from '@codemirror/search'
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
@@ -11,44 +5,10 @@ import { basicSetup } from 'codemirror'
 import { useEffect, useRef } from 'react'
 import { argusKeymap } from '../editorKeymap'
 import { argusEditorTheme } from '../editorTheme'
+import { languageFor } from '../languages'
 import { applyDiagnosticsToView, cmdClickDefinition, lspExtensions } from '../lsp'
-import { rubyHighlight } from '../ruby/rubyHighlight'
 import { documents, registerActiveView, setExtensionsBuilder, useWorkspaceStore } from '../store'
 import { EditorTabs } from './EditorTabs'
-
-const RUBY_FILE = /\.(rb|rake|gemspec|ru)$|(^|\/)(Gemfile|Rakefile)$/
-
-function languageFor(path: string): Extension[] {
-  // Ruby: tree-sitter highlighting, like sourcedelve (LSP semantic tokens off)
-  if (RUBY_FILE.test(path)) return [rubyHighlight()]
-  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  switch (ext) {
-    case 'js':
-    case 'mjs':
-    case 'cjs':
-      return [javascript()]
-    case 'jsx':
-      return [javascript({ jsx: true })]
-    case 'ts':
-      return [javascript({ typescript: true })]
-    case 'tsx':
-      return [javascript({ typescript: true, jsx: true })]
-    case 'css':
-      return [css()]
-    case 'html':
-    case 'htm':
-      return [html()]
-    case 'json':
-      return [json()]
-    case 'md':
-    case 'markdown':
-      return [markdown()]
-    case 'py':
-      return [python()]
-    default:
-      return []
-  }
-}
 
 /** Builds the full extension set for a document (registered with the store). */
 function buildExtensions(path: string): Extension[] {

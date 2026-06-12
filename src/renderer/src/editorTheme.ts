@@ -1,7 +1,7 @@
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { tags } from '@lezer/highlight'
+import { SYNTAX_CLASS_RULES } from './languages'
 
 /** CodeMirror theme wired to the design tokens (spec 13). */
 
@@ -36,20 +36,8 @@ const chrome = EditorView.theme(
   { dark: true }
 )
 
-const highlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.controlKeyword, tags.moduleKeyword], color: '#c678dd' },
-  { tag: [tags.string, tags.special(tags.string)], color: '#98c379' },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: '#d19a66' },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: '#56b6c2' },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: '#61afef' },
-  {
-    tag: [tags.comment, tags.blockComment, tags.lineComment],
-    color: '#808898',
-    fontStyle: 'italic'
-  },
-  { tag: [tags.propertyName, tags.attributeName], color: '#e06c75' },
-  { tag: [tags.operator, tags.punctuation], color: '#dde1e8' },
-  { tag: tags.invalid, color: '#e06c75', textDecoration: 'underline' }
-])
+// shared tag → tsh-* class rules; colors live in main.css (spec 13), the
+// same classes the Ruby tree-sitter highlighter and search rows use
+const highlight = HighlightStyle.define(SYNTAX_CLASS_RULES)
 
 export const argusEditorTheme: Extension[] = [chrome, syntaxHighlighting(highlight)]

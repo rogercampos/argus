@@ -61,6 +61,33 @@ function loadRuby(): Promise<RubyLanguage> {
   return loading
 }
 
+/** Single-line highlighter for search-result rows (lineHighlight.ts). */
+export interface RubyLineHighlighter {
+  highlightLine: (text: string) => Array<{ from: number; to: number; className: string }>
+}
+
+export async function loadRubyLineHighlighter(): Promise<RubyLineHighlighter> {
+  const lang = await loadRuby()
+  const parser = lang.makeParser()
+  return {
+    highlightLine: (text) => {
+      const tree = parser.parse(text)
+      if (!tree) return []
+      const captures = lang.captures(tree.rootNode, {
+        startPosition: { row: 0, column: 0 },
+        endPosition: { row: 0, column: text.length }
+      })
+      const spans: Array<{ from: number; to: number; className: string }> = []
+      for (const { name, node } of captures) {
+        const cls = CAPTURE_CLASSES[name]
+        if (cls) spans.push({ from: node.startIndex, to: node.endIndex, className: cls })
+      }
+      tree.delete()
+      return spans
+    }
+  }
+}
+
 const decorationCache = new Map<string, Decoration>()
 function markFor(captureName: string): Decoration | null {
   const cls = CAPTURE_CLASSES[captureName]
