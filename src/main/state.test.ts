@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -104,5 +104,13 @@ describe('state persistence', () => {
     expect(workspaceHash('/a/b')).toBe(workspaceHash('/a/b'))
     expect(workspaceHash('/a/b')).not.toBe(workspaceHash('/a/c'))
     expect(workspaceHash('/a/b')).toMatch(/^[0-9a-f]{32}$/)
+  })
+
+  it('treats corrupt state files as missing', async () => {
+    writeFileSync(join(dir, 'state', 'app.json'), '{ not json !!!')
+    expect(await loadAppState()).toBeNull()
+
+    writeFileSync(join(dir, 'state', 'recent-workspaces.json'), 'null')
+    expect(await loadRecentWorkspaces()).toEqual([])
   })
 })

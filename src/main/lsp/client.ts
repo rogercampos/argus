@@ -51,6 +51,13 @@ export class LspInstance {
     this.child.stderr?.on('data', () => {}) // drain
     this.child.on('exit', () => {
       this.state = 'dead'
+      // dispose rejects in-flight sendRequest promises; without it a crash
+      // mid-request leaves callers awaiting forever
+      try {
+        this.connection.dispose()
+      } catch {
+        // already disposed
+      }
       options.onExit()
     })
 

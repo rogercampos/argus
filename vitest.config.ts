@@ -1,13 +1,46 @@
+import { resolve } from 'node:path'
+import type { Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
+
+/** electron-vite's `?asset` imports (icons etc.) become empty strings in tests. */
+function assetStub(): Plugin {
+  return {
+    name: 'argus-asset-stub',
+    enforce: 'pre',
+    resolveId(id) {
+      if (id.includes('?asset')) return `\0argus-asset:${id}`
+      return null
+    },
+    load(id) {
+      if (id.startsWith('\0argus-asset:')) return 'export default ""'
+      return null
+    }
+  }
+}
 
 export default defineConfig({
   test: {
     projects: [
       {
+        plugins: [assetStub()],
+        resolve: {
+          alias: {
+            // main-process tests run in plain Node; the Electron runtime is
+            // the one external dependency we replace (test/electronStub.ts)
+            electron: resolve(__dirname, 'test/electronStub.ts')
+          }
+        },
         test: {
           name: 'main',
           include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
-          environment: 'node'
+          environment: 'node',
+          server: {
+            deps: {
+              // CJS deps that require('electron') must be inlined so the
+              // alias above applies to them too
+              inline: ['@electron-toolkit/utils']
+            }
+          }
         }
       },
       {

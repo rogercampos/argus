@@ -19,7 +19,9 @@ export class SemgrepRunner {
 
   constructor(
     private root: string,
-    private onDiagnostics: (relPath: string, diagnostics: LspDiagnostic[]) => void
+    private onDiagnostics: (relPath: string, diagnostics: LspDiagnostic[]) => void,
+    /** test seam: env resolution spawns a real login shell otherwise */
+    private envFor: (dir: string) => Promise<Record<string, string>> = resolveShellEnv
   ) {}
 
   private async ensureChecked(): Promise<boolean> {
@@ -35,7 +37,7 @@ export class SemgrepRunner {
       }
     }
     if (!this.configPath) return false
-    const env = await resolveShellEnv(this.root)
+    const env = await this.envFor(this.root)
     for (const dir of (env.PATH ?? '').split(':')) {
       try {
         await fs.access(join(dir, 'semgrep'))

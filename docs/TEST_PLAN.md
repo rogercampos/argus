@@ -141,50 +141,72 @@ completes the matrix so **every channel** has tests. Where the logic lives in
 `ipc.ts` itself, extract it into a testable module function (handlers should
 be one-line wiring).
 
-- [ ] `repo:list-files` — git repo (respects .gitignore), non-git fallback
+- [x] `repo:list-files` — git repo (respects .gitignore), non-git fallback
       walk (prunes node_modules/.git), empty repo, unicode/space filenames.
-- [ ] `repo:list-top-level` — dirs get trailing slash, ordering.
-- [ ] `repo:git-status` — all status letters, renames, ignored, mid-merge.
-- [ ] `file:read` / `file:read-abs` — happy path, 5 MB cap, binary (NUL)
+- [x] `repo:list-top-level` — dirs get trailing slash, ordering.
+- [x] `repo:git-status` — all status letters, renames, ignored, mid-merge.
+- [x] `file:read` / `file:read-abs` — happy path, 5 MB cap, binary (NUL)
       detection, path-traversal rejection, missing file, permission error.
-- [ ] `file:write` / `file:write-abs` — happy path, traversal rejection,
+- [x] `file:write` / `file:write-abs` — happy path, traversal rejection,
       creating parent dirs (or error, whichever is the behavior), failure path.
-- [ ] `file:exists`.
-- [ ] `search:start` / `search:cancel` — real ripgrep: streaming batches,
+- [x] `file:exists`.
+- [x] `search:start` / `search:cancel` — real ripgrep: streaming batches,
       case/word/regex flags, scope folder, excluded paths, max-results cap +
       `capped` flag, cancel mid-search kills the process, no zombie procs.
-- [ ] **replaceAll** — multi-file replacement counts, regex capture groups,
+- [x] **replaceAll** — multi-file replacement counts, regex capture groups,
       respects same flags/scope as search.
-- [ ] `workspace:save-state` / `load-state` / `load-file-state` — round-trip,
+- [x] `workspace:save-state` / `load-state` / `load-file-state` — round-trip,
       corrupt JSON on disk → safe default, schema defaults for missing keys
       (`defaultWorkspaceState`), per-workspace keying.
-- [ ] `app:recent-workspaces` / `remove-recent-workspace` — ordering by
+- [x] `app:recent-workspaces` / `remove-recent-workspace` — ordering by
       lastOpen, limit, dedupe, removal.
-- [ ] `watch:start` — real `@parcel/watcher` on a temp dir: create/update/
+- [x] `watch:start` — real `@parcel/watcher` on a temp dir: create/update/
       delete events arrive with correct relPaths, node_modules/.git ignored,
       debounce/batching behavior.
-- [ ] **Git monitor** (`git.ts` beyond parsing) — branch detection, rebase/
+- [x] **Git monitor** (`git.ts` beyond parsing) — branch detection, rebase/
       merge/cherry-pick state detection from `.git` files, status diff
       computation (entry added / removed / changed → `null` semantics).
-- [ ] `rails:schema-for` — model→table inference (pluralization,
+- [x] `rails:schema-for` — model→table inference (pluralization,
       `self.table_name`), columns/indexes/line numbers, non-Rails repo → null.
-- [ ] **LSP manager** (`src/main/lsp/`) — project discovery (kinds, isRails,
+- [x] **LSP manager** (`src/main/lsp/`) — project discovery (kinds, isRails,
       tool versions), routing a file to the right project, server lifecycle
       against a **fake LSP server script** (a tiny Node stdio process speaking
       LSP — external binary, fair to fake): didOpen/didChange/didClose
       sequencing, hover/completion/definition/symbols request-response,
       diagnostics push, server crash → restart or graceful degradation.
-- [ ] **procRegistry / procStats** — register/unregister, descendant rollup,
+- [x] **procRegistry / procStats** — register/unregister, descendant rollup,
       activity aggregation windows, `app:slow-ops` recording and retrieval.
-- [ ] **semgrep.ts** — invocation and result parsing (skip if binary not
+- [x] **semgrep.ts** — invocation and result parsing (skip if binary not
       present; gate behind availability check).
-- [ ] **tasks.ts** — queued→started→progress→finished update sequence.
-- [ ] **menu.ts** — menu template builds; every `MenuCommand` in
+- [x] **tasks.ts** — queued→started→progress→finished update sequence.
+- [x] **menu.ts** — menu template builds; every `MenuCommand` in
       `shared/types.ts` is reachable from some menu item (guards against
       adding a command and forgetting the menu entry).
-- [ ] **windows.ts** — session restore decision logic (ARGUS_OPEN wins,
+- [x] **windows.ts** — session restore decision logic (ARGUS_OPEN wins,
       saved windows, fallback to welcome); bounds save/restore. Extract pure
       decision logic from Electron wiring where needed.
+
+**Status (done 2026-06-12, 84 new tests; main suite 137 tests total): every
+IPC channel and main-process module covered. Coverage: `src/main` 97.4% lines,
+`src/main/lsp` 89.3% lines.** Implementation notes:
+
+- The Electron runtime is replaced in tests by `test/electronStub.ts` via a
+  vitest alias (Electron is the external platform — application code runs
+  unmodified). `ipc.ts` is tested by invoking the real registered handlers
+  with stub windows; `menu.ts`/`windows.ts` run against stub Menu/windows.
+- The fake LSP server (`test/fakeLspServer.mjs`, a real stdio child process
+  speaking JSON-RPC) drives manager+client integration: lifecycle, hover,
+  completion, definition (Location and LocationLink), workspace symbols,
+  push and pull diagnostics, crash handling, dispose.
+- Two injection seams added (optional constructor params, defaults
+  unchanged): `LspManager(registryFor)` and `SemgrepRunner(envFor)`.
+- Two more real bugs found and fixed: (3) `writeJsonAtomic` temp names
+  collided for same-millisecond concurrent writes (session restore with two
+  windows crashed the write); (4) a crashed LSP server left in-flight
+  requests hanging forever — the connection is now disposed on process exit.
+  Plus a renderer race: Go to File opened during startup kept fuzzy-matching
+  against the top-level skeleton; the modal now refeeds its worker when the
+  path list changes.
 
 ---
 

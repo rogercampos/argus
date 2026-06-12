@@ -32,9 +32,13 @@ async function readJson<T>(path: string): Promise<T | null> {
   }
 }
 
+let tmpCounter = 0
+
 async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   await fs.mkdir(dirname(path), { recursive: true })
-  const tmp = `${path}.tmp-${process.pid}-${Date.now()}`
+  // a counter, not a timestamp: concurrent writes in the same millisecond
+  // must not collide on the temp name (the second rename would throw)
+  const tmp = `${path}.tmp-${process.pid}-${++tmpCounter}`
   await fs.writeFile(tmp, JSON.stringify(value, null, 2), 'utf8')
   await fs.rename(tmp, path)
 }

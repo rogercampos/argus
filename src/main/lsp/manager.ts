@@ -52,7 +52,9 @@ export class LspManager {
 
   constructor(
     private root: string,
-    private window: BrowserWindow
+    private window: BrowserWindow,
+    /** test seam: replace the registry to point servers at a fake binary */
+    private registryFor: (env: Record<string, string>) => ServerConfig[] = buildServerRegistry
   ) {
     this.projects = new ProjectRegistry(root)
     this.projects.onChange((projects) => this.send('lsp:projects', projects))
@@ -101,7 +103,7 @@ export class LspManager {
     const languageId = languageIdForPath(relPath)
     if (!languageId) return []
     const env = await resolveShellEnv(this.root)
-    const registry = buildServerRegistry(env)
+    const registry = this.registryFor(env)
     const matching = registry.filter((c) => c.languages.includes(languageId))
     const result: LspInstance[] = []
     for (const config of matching) {

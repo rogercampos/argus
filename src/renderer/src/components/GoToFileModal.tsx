@@ -33,11 +33,10 @@ export function GoToFileModal(): React.JSX.Element {
     })
   }, [])
 
-  // Worker lifecycle + initial query
+  // Worker lifecycle
   useEffect(() => {
     const worker = new Worker(new URL('../fuzzyWorker.ts', import.meta.url), { type: 'module' })
     workerRef.current = worker
-    worker.postMessage({ type: 'set', paths: visiblePaths() })
     worker.onmessage = (
       event: MessageEvent<{ type: string; id: number; items: RankedItem[]; total: number }>
     ) => {
@@ -89,10 +88,15 @@ export function GoToFileModal(): React.JSX.Element {
     })
   }, [])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount with the restored query
+  // Feed the worker whenever the path list changes: the modal can open while
+  // the full file list is still loading (startup shows the top-level skeleton
+  // only), and results must reflect the complete list once it lands.
+  const paths = useWorkspaceStore((s) => s.paths)
+  const excludedPaths = useWorkspaceStore((s) => s.excludedPaths)
   useEffect(() => {
-    void runQuery(query)
-  }, [])
+    workerRef.current?.postMessage({ type: 'set', paths: visiblePaths() })
+    void runQuery(inputRef.current?.value ?? '')
+  }, [paths, excludedPaths, runQuery])
 
   const open = useCallback(
     (path: string): void => {
