@@ -13,6 +13,11 @@ import {
   restoreSession
 } from './windows'
 
+// Test/dev isolation: point all persisted state somewhere else (E2E runs).
+if (process.env.ARGUS_USER_DATA) {
+  app.setPath('userData', process.env.ARGUS_USER_DATA)
+}
+
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
