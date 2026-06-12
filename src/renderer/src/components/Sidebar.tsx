@@ -78,6 +78,10 @@ function diffOps(
   }
   for (const path of prev) {
     if (!nextSet.has(path)) {
+      // explicit directory entries only exist in the startup skeleton; a
+      // recursive remove of "src/" would nuke the files just added under it,
+      // so the skeleton -> full-list transition must be a full rebuild
+      if (path.endsWith('/')) return null
       ops.push({ type: 'remove', path, recursive: true })
       if (ops.length > MAX_BATCH_OPS) return null
     }
@@ -181,6 +185,7 @@ function syncModelPaths(model: FileTreeModel, paths: readonly string[], starKey:
 export function Sidebar(): React.JSX.Element {
   const paths = useWorkspaceStore((s) => s.paths)
   const gitStatus = useWorkspaceStore((s) => s.gitStatus)
+  const excludedPaths = useWorkspaceStore((s) => s.excludedPaths)
   const loadingTree = useWorkspaceStore((s) => s.loadingTree)
   const rootName = useWorkspaceStore((s) => s.rootName)
   const starredFolders = useWorkspaceStore((s) => s.starredFolders)
@@ -195,8 +200,17 @@ export function Sidebar(): React.JSX.Element {
   }, [model, paths, starKey])
 
   useEffect(() => {
-    model.setGitStatus(gitStatus)
-  }, [model, gitStatus])
+    // Excluded paths render dimmed like git-ignored entries; the tree
+    // inherits 'ignored' down the whole subtree of an excluded folder.
+    // Folder entries need a trailing slash for the library to treat them
+    // as directories.
+    const filePaths = useWorkspaceStore.getState().filePaths
+    const excluded = excludedPaths.map((path) => ({
+      path: filePaths.has(path) ? path : `${path}/`,
+      status: 'ignored' as const
+    }))
+    model.setGitStatus([...gitStatus, ...excluded])
+  }, [model, gitStatus, excludedPaths])
 
   // Reveal Active File (spec 07): expand ancestors, scroll, select.
   // The previous selection is cleared first; selection-change events are
