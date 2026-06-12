@@ -33,6 +33,13 @@ export function SearchPreview({ match }: { match: SearchMatch | null }): React.J
     void documents.open(match.path, getExtensionsForPath(match.path)).then((doc) => {
       if (cancelled || !doc || !containerRef.current) return
 
+      // When match goes null (tab re-run/switch resets results) the container
+      // unmounts; a kept view would stay attached to the detached old DOM and
+      // render nothing once a new container appears. Recreate it.
+      if (viewRef.current && viewRef.current.dom.parentElement !== containerRef.current) {
+        viewRef.current.destroy()
+        viewRef.current = null
+      }
       if (!viewRef.current) {
         viewRef.current = new EditorView({ parent: containerRef.current })
         if (import.meta.env.DEV) {
