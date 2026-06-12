@@ -109,6 +109,17 @@ describe('global search backend (spec 03)', () => {
     expect(capped).toBe(true)
   })
 
+  it('cancel discards pending matches instead of flushing them', async () => {
+    const events: SearchProgress[] = []
+    const search = runSearch(root, { ...baseOptions, pattern: 'needle' }, (progress) => {
+      events.push(progress)
+    })
+    search.cancel() // before the first 150ms batch flush
+    await search.done
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(events.flatMap((e) => e.matches)).toEqual([])
+  })
+
   it('truncates long lines around the match', () => {
     const long = `${'x'.repeat(300)}needle${'y'.repeat(300)}`
     const { text, submatches } = truncateLine(long, [{ start: 300, end: 306 }])

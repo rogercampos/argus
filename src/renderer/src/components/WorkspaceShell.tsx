@@ -25,6 +25,10 @@ import { TitleBar } from './TitleBar'
 
 const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
 
+/** Store inits register IPC listeners; double-running (React StrictMode
+ * re-mounts effects in dev) would duplicate every streamed result. */
+let storesInitialized = false
+
 export function WorkspaceShell(): React.JSX.Element {
   const panels = useWorkspaceStore((s) => s.panels)
   const setPanels = useWorkspaceStore((s) => s.setPanels)
@@ -32,6 +36,8 @@ export function WorkspaceShell(): React.JSX.Element {
   const notice = useWorkspaceStore((s) => s.notice)
 
   useEffect(() => {
+    if (storesInitialized) return
+    storesInitialized = true
     useTasksStore.getState().init()
     useProcStore.getState().init()
     initLsp()

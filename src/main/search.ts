@@ -150,9 +150,16 @@ export function runSearch(
   child.on('error', finish)
 
   return {
+    // Discard, don't flush: a cancelled search's pending matches would land
+    // after the renderer reset its results (new search, same id) and show
+    // up as stale/duplicate rows
     cancel: () => {
       child.kill()
-      finish()
+      if (finished) return
+      finished = true
+      clearInterval(interval)
+      pending = []
+      resolveDone()
     },
     done
   }
