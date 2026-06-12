@@ -44,6 +44,22 @@ export default defineConfig({
         }
       },
       {
+        resolve: {
+          alias: [
+            // `.wasm?url` imports become absolute fs paths in tests
+            // (emscripten reads local paths under Node)
+            {
+              find: /^web-tree-sitter\/web-tree-sitter\.wasm\?url$/,
+              replacement: resolve(__dirname, 'test/wasmCorePath.ts')
+            },
+            {
+              // consume the whole specifier: a partial regex match would keep
+              // the './' prefix and break resolution
+              find: /^.*tree-sitter-ruby\.wasm\?url$/,
+              replacement: resolve(__dirname, 'test/wasmRubyPath.ts')
+            }
+          ]
+        },
         test: {
           name: 'renderer',
           include: ['src/renderer/**/*.test.ts', 'src/renderer/**/*.test.tsx'],

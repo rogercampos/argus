@@ -28,7 +28,11 @@ import type {
   BackgroundTaskUpdate,
   GitState,
   GitStatusDiff,
+  LspCompletionItem,
   LspDiagnostic,
+  LspHoverResult,
+  LspLocation,
+  LspSymbol,
   MenuCommand,
   ProcStatsSnapshot,
   ProjectInfo,
@@ -68,11 +72,24 @@ export interface RecordedCalls {
   revealedPaths: string[]
   clipboardWrites: string[]
   watchStarts: number
+  lspDidOpen: string[]
+  lspDidChange: string[]
+  lspDidClose: string[]
+}
+
+/** Canned LSP responses (stands in for the language-server external process). */
+export interface CannedLsp {
+  hover: LspHoverResult | null
+  definitions: LspLocation[]
+  completions: LspCompletionItem[]
+  symbols: LspSymbol[]
 }
 
 export interface TestApi {
   api: ArgusApi
   calls: RecordedCalls
+  /** mutate to control what the LSP methods answer */
+  lsp: CannedLsp
   /** dir holding persisted state, in case a test wants to inspect it */
   stateDir: string
   emitMenuCommand(command: MenuCommand): void
@@ -83,6 +100,7 @@ export interface TestApi {
   emitProcStats(snapshot: ProcStatsSnapshot): void
   emitLspDiagnostics(payload: { path: string; diagnostics: LspDiagnostic[] }): void
   emitLspProjects(projects: ProjectInfo[]): void
+  emitSearchProgress(searchId: number, progress: SearchProgress): void
   /** cancel anything still running (call from afterEach) */
   dispose(): void
 }
@@ -96,8 +114,13 @@ export function createTestApi(workspacePath: string): TestApi {
     openFolderDialogs: 0,
     revealedPaths: [],
     clipboardWrites: [],
-    watchStarts: 0
+    watchStarts: 0,
+    lspDidOpen: [],
+    lspDidChange: [],
+    lspDidClose: []
   }
+
+  const lsp: CannedLsp = { hover: null, definitions: [], completions: [], symbols: [] }
 
   const menuCommands = new Channel<[MenuCommand]>()
   const watchEvents = new Channel<[WatchEvent[]]>()
@@ -130,14 +153,20 @@ export function createTestApi(workspacePath: string): TestApi {
     },
     onWatchEvents: (handler) => watchEvents.subscribe(handler),
 
-    // LSP — wired to a fake server in test plan phase 3
-    lspDidOpen: async () => {},
-    lspDidChange: async () => {},
-    lspDidClose: async () => {},
-    lspHover: async () => null,
-    lspDefinition: async () => [],
-    lspCompletion: async () => [],
-    lspWorkspaceSymbols: async () => [],
+    // LSP — canned responses (the language server is an external process)
+    lspDidOpen: async (relPath) => {
+      calls.lspDidOpen.push(relPath)
+    },
+    lspDidChange: async (relPath) => {
+      calls.lspDidChange.push(relPath)
+    },
+    lspDidClose: async (relPath) => {
+      calls.lspDidClose.push(relPath)
+    },
+    lspHover: async () => lsp.hover,
+    lspDefinition: async () => lsp.definitions,
+    lspCompletion: async () => lsp.completions,
+    lspWorkspaceSymbols: async () => lsp.symbols,
     onLspDiagnostics: (handler) => lspDiagnostics.subscribe(handler),
     onLspProjects: (handler) => lspProjects.subscribe(handler),
     railsSchemaFor: (relPath) => schemaForModel(workspacePath, relPath),
@@ -190,6 +219,7 @@ export function createTestApi(workspacePath: string): TestApi {
   return {
     api,
     calls,
+    lsp,
     stateDir,
     emitMenuCommand: (command) => menuCommands.emit(command),
     emitWatchEvents: (events) => watchEvents.emit(events),
@@ -199,6 +229,7 @@ export function createTestApi(workspacePath: string): TestApi {
     emitProcStats: (snapshot) => procStats.emit(snapshot),
     emitLspDiagnostics: (payload) => lspDiagnostics.emit(payload),
     emitLspProjects: (projects) => lspProjects.emit(projects),
+    emitSearchProgress: (searchId, progress) => searchProgress.emit(searchId, progress),
     dispose: () => {
       for (const search of activeSearches.values()) search.cancel()
       activeSearches.clear()

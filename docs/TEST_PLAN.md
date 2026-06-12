@@ -218,70 +218,90 @@ real temp fixture repo. This is where we cover **all UI-exposed functionality**
 that E2E only samples.
 
 Workspace shell & layout
-- [ ] `WorkspaceShell` — initial load sequence: top-level paint → full file
+- [x] `WorkspaceShell` — initial load sequence: top-level paint → full file
       list → git status; panel toggles (left/bottom/right) via menu commands;
       `Resizer` drag updates widths and persists layout.
-- [ ] `Welcome` — recent list rendering, open/remove actions.
-- [ ] `TitleBar`, `StatusBar` — branch/git state display, task updates,
+- [x] `Welcome` — recent list rendering, open/remove actions.
+- [x] `TitleBar`, `StatusBar` — branch/git state display, task updates,
       diagnostics summary, proc stats display.
 
 File tree (`Sidebar`)
-- [ ] Tree renders from file list; expand/collapse; select opens file.
-- [ ] Git status badges from status entries; updates on diff events.
-- [ ] Starred folders: star/unstar, persisted, shown in star section.
-- [ ] Excluded paths dimmed; skeleton → full swap keeps expanded folders
+- [x] Tree renders from file list; expand/collapse; select opens file.
+- [x] Git status badges from status entries; updates on diff events.
+- [x] Starred folders: star/unstar, persisted, shown in star section.
+- [x] Excluded paths dimmed; skeleton → full swap keeps expanded folders
       (regression: commit 9f41c3d).
-- [ ] Watch events: create/delete files update the tree.
-- [ ] Context-menu actions: reveal in Finder (api called), copy relative
+- [x] Watch events: create/delete files update the tree.
+- [x] Context-menu actions: reveal in Finder (api called), copy relative
       path (clipboard api called), copy path.
 
 Editor area
-- [ ] `EditorPane` — mounts CodeMirror with file content; language chosen by
+- [x] `EditorPane` — mounts CodeMirror with file content; language chosen by
       extension (`languages.ts`); read-only/binary/too-large fallbacks render
       a message, not a crash.
-- [ ] `EditorTabs` — open/activate/close/dirty markers; next/previous-tab
+- [x] `EditorTabs` — open/activate/close/dirty markers; next/previous-tab
       commands; close-tab on dirty file behavior.
-- [ ] Dirty tracking + save/save-all through real `documents.ts` →
+- [x] Dirty tracking + save/save-all through real `documents.ts` →
       `writeFile` → content really on disk.
-- [ ] File view state: cursor/scroll saved on switch, restored on return.
-- [ ] Menu-command keymap actions: comment-line, duplicate-line,
+- [x] File view state: cursor/scroll saved on switch, restored on return.
+- [x] Menu-command keymap actions: comment-line, duplicate-line,
       move-line-up/down on real CodeMirror state.
-- [ ] Line highlight on jump (`lineHighlight` in situ).
+- [x] Line highlight on jump (`lineHighlight` in situ).
 
 Modals (all via `Modal.tsx` host)
-- [ ] `GoToFileModal` — fuzzy results (real worker logic, run synchronously),
+- [x] `GoToFileModal` — fuzzy results (real worker logic, run synchronously),
       keyboard navigation, enter opens, path tail truncation (`PathTail`).
-- [ ] `RecentFilesModal` — ordering, missing files filtered.
-- [ ] `GoToLineModal` — parse `:line:col`, clamp out-of-range.
-- [ ] `GoToSymbolModal` — symbols from api, filtering, selection jumps.
-- [ ] `DefinitionPicker` — multiple definition targets, pick one.
-- [ ] `ProjectsModal` — detected projects listing.
-- [ ] `SlowOpsModal` — rows from `slowOps()`.
-- [ ] `SearchModal` — query → streamed results, arrow-key nav **after
+- [x] `RecentFilesModal` — ordering, missing files filtered.
+- [x] `GoToLineModal` — parse `:line:col`, clamp out-of-range.
+- [x] `GoToSymbolModal` — symbols from api, filtering, selection jumps.
+- [x] `DefinitionPicker` — multiple definition targets, pick one.
+- [x] `ProjectsModal` — detected projects listing.
+- [x] `SlowOpsModal` — rows from `slowOps()`.
+- [x] `SearchModal` — query → streamed results, arrow-key nav **after
       clicking a result** (regression: commit 9c9a415), syntax-highlighted
       match lines (regression: fa61ed4), enter opens at line.
 
 Search panel
-- [ ] `SearchPanel` + `searchStore` — start search → batches accumulate;
+- [x] `SearchPanel` + `searchStore` — start search → batches accumulate;
       flag toggles re-run search (regression: 2e27649); scope to folder;
       multiple search tabs (create/switch/close/persist); capped indicator;
       cancel on new input.
-- [ ] `SearchPreview` — match context rendering, click-to-open.
-- [ ] Replace-all flow from the panel, confirmation, result toast/counts.
+- [x] `SearchPreview` — match context rendering, click-to-open.
+- [x] Replace-all flow from the panel, confirmation, result toast/counts.
 
 LSP client (`renderer/src/lsp.ts`)
-- [ ] didOpen/didChange/didClose lifecycle tied to tab lifecycle.
-- [ ] Diagnostics → CodeMirror lint decorations.
-- [ ] Hover/completion/definition wiring (fake server from Phase 2).
+- [x] didOpen/didChange/didClose lifecycle tied to tab lifecycle.
+- [x] Diagnostics → CodeMirror lint decorations.
+- [x] Hover/completion/definition wiring (fake server from Phase 2).
 
 Stores (direct, where component tests don't reach the edge cases)
-- [ ] `store.ts` (WorkspaceStore) — every action and derived value: open
+- [x] `store.ts` (WorkspaceStore) — every action and derived value: open
       file, open external file (absolute path tabs), close, reorder,
       recent-files tracking, starred folders, excluded paths, panel state,
       persistence debounce → `saveWorkspaceState` payload shape.
-- [ ] `searchStore.ts` — tab model edge cases, id allocation, stale-result
+- [x] `searchStore.ts` — tab model edge cases, id allocation, stale-result
       rejection (results for an old searchId ignored).
-- [ ] `procStore.ts`, `tasksStore.ts` — snapshot/update handling.
+- [x] `procStore.ts`, `tasksStore.ts` — snapshot/update handling.
+
+**Status (done 2026-06-12, 91 new tests; suite now 306 tests): every store and
+component is exercised against the real backend modules through
+`test/apiAdapter.ts` (real ripgrep, real fixture repos, real DocumentManager,
+real CodeMirror in jsdom). Coverage after this phase: 87.5% lines overall
+(renderer 81.5%, components 83.9%, main 97.4%).** Implementation notes:
+
+- jsdom gaps are bridged in `test/setup.renderer.ts`: a Worker shim that
+  speaks the fuzzy/treeSort worker protocols through the real modules, fake
+  non-zero element geometry (so virtualized lists render), RTL auto-cleanup,
+  and CodeMirror Range/ResizeObserver shims.
+- The file tree renders into @pierre/trees' shadow DOM, which
+  testing-library cannot pierce — `Sidebar.test.tsx` queries the shadow root
+  by the library's `data-item-path` attributes directly (rows, expansion,
+  context menus, star/exclude all covered).
+- `.wasm?url` imports (ruby tree-sitter) resolve to fs paths via aliases in
+  the renderer vitest project.
+- Deferred to Phase 4: `editorKeymap` bindings, the renderer LSP
+  extensions (hover tooltip/completion source/cmd-hover plugin — DOM-event
+  heavy), `Resizer` drag math, `lineHighlight`/`languages` edge cases.
 
 ---
 
