@@ -154,15 +154,28 @@ export function SearchPanel(): React.JSX.Element {
             label="Aa"
             title="Case sensitive"
             active={tab.flags.caseSensitive}
-            onToggle={() => {}}
+            onToggle={() =>
+              useSearchStore
+                .getState()
+                .setTabFlags(activeTab, { caseSensitive: !tab.flags.caseSensitive })
+            }
           />
           <FlagToggle
             label="W"
             title="Whole word"
             active={tab.flags.wholeWord}
-            onToggle={() => {}}
+            onToggle={() =>
+              useSearchStore.getState().setTabFlags(activeTab, { wholeWord: !tab.flags.wholeWord })
+            }
           />
-          <FlagToggle label=".*" title="Regex" active={tab.flags.regex} onToggle={() => {}} />
+          <FlagToggle
+            label=".*"
+            title="Regex"
+            active={tab.flags.regex}
+            onToggle={() =>
+              useSearchStore.getState().setTabFlags(activeTab, { regex: !tab.flags.regex })
+            }
+          />
         </div>
       </div>
       <div className="flex min-h-0 flex-1">

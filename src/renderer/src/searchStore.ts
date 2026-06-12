@@ -69,6 +69,7 @@ interface SearchStore {
   closeTab: (index: number) => void
   closeAllTabs: () => void
   reRunTab: (index: number) => void
+  setTabFlags: (index: number, update: Partial<SearchFlags>) => void
   toggleFileCollapsed: (tabIndex: number, path: string) => void
   selectTabMatch: (tabIndex: number, matchIndex: number) => void
   setReplaceText: (text: string) => void
@@ -303,6 +304,17 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       tab.id,
       buildOptions(tab.pattern, tab.flags, tab.scopeFolder, TAB_MAX_RESULTS)
     )
+  },
+
+  /** Toggle a flag on a results tab and re-evaluate its search. */
+  setTabFlags: (index, update) => {
+    const tabs = [...get().tabs]
+    const tab = tabs[index]
+    if (!tab) return
+    tabs[index] = { ...tab, flags: { ...tab.flags, ...update } }
+    set({ tabs })
+    get().reRunTab(index)
+    persistTabs()
   },
 
   toggleFileCollapsed: (tabIndex, path) => {
