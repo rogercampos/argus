@@ -310,37 +310,51 @@ real CodeMirror in jsdom). Coverage after this phase: 87.5% lines overall
 Fill remaining gaps, edge-case heavy. Run `pnpm test:coverage`, sort by
 uncovered lines, iterate. Known targets beyond what Phases 2–3 reach:
 
-- [ ] `fuzzy.ts` — scoring ties, empty query, case boundaries, very long
+- [x] `fuzzy.ts` — scoring ties, empty query, case boundaries, very long
       paths, non-ASCII (extend existing).
-- [ ] `treeSort.ts` — dirs-first, locale/numeric ordering, hidden files
+- [x] `treeSort.ts` — dirs-first, locale/numeric ordering, hidden files
       (extend existing).
-- [ ] `tabs.ts` / `history.ts` / `documents.ts` — exhaustive edge cases:
+- [x] `tabs.ts` / `history.ts` / `documents.ts` — exhaustive edge cases:
       close-active-tab successor rules, history truncation on new jump,
       duplicate suppression, unsaved-changes interactions (extend existing).
-- [ ] `languages.ts` — every extension mapping, unknown extension fallback.
-- [ ] `editorKeymap.ts` — each binding dispatches the right command.
-- [ ] `editorTheme.ts` — sanity (exports valid extension).
-- [ ] `lineHighlight.ts`, `ruby/rubyHighlight.ts` — boundary cases (extend).
-- [ ] `fuzzyWorker.ts` / `treeSortWorker.ts` — message protocol (run worker
+- [x] `languages.ts` — every extension mapping, unknown extension fallback.
+- [x] `editorKeymap.ts` — each binding dispatches the right command.
+- [x] `editorTheme.ts` — sanity (exports valid extension).
+- [x] `lineHighlight.ts`, `ruby/rubyHighlight.ts` — boundary cases (extend).
+- [x] `fuzzyWorker.ts` / `treeSortWorker.ts` — message protocol (run worker
       module body with a stubbed `self`, or extract logic — already mostly in
       `fuzzy.ts`/`treeSort.ts`).
-- [ ] main `git.ts` parsing — exotic porcelain lines: renames with arrows in
+- [x] main `git.ts` parsing — exotic porcelain lines: renames with arrows in
       names, quoted paths, submodules, detached HEAD.
-- [ ] main `schema.ts` — defaults with commas, multi-column indexes,
+- [x] main `schema.ts` — defaults with commas, multi-column indexes,
       `t.index` vs `add_index` forms, malformed schema.
-- [ ] main `state.ts` — concurrent writes, atomicity (write-then-rename if
+- [x] main `state.ts` — concurrent writes, atomicity (write-then-rename if
       implemented), migration of older shapes.
-- [ ] main `procStats.ts` — ps output parsing edge cases.
-- [ ] `shared/types.ts` helpers — `defaultWorkspaceState` invariants.
+- [x] main `procStats.ts` — ps output parsing edge cases.
+- [x] `shared/types.ts` helpers — `defaultWorkspaceState` invariants.
 
 **Coverage thresholds** (ratchet, never lower):
 - [x] Start: record baseline after Phase 0: **23.4% lines / 19.3% branches** (2026-06-12).
-- [ ] After Phase 2: `src/main/**` ≥ 90% lines/branches.
-- [ ] After Phase 3: `src/renderer/src/*.ts` (non-component logic) ≥ 90%.
-- [ ] After Phase 4: global ≥ 90%, logic modules ≥ 95–100%. Components are
+- [x] After Phase 2: `src/main/**` ≥ 90% lines/branches.
+- [x] After Phase 3: `src/renderer/src/*.ts` (non-component logic) ≥ 90%.
+- [x] After Phase 4: global ≥ 90%, logic modules ≥ 95–100%. Components are
       covered primarily via Phase 3; accept somewhat lower branch coverage
       there only with justification (e.g. defensive rendering branches).
-- [ ] Enforce thresholds in `vitest.config.ts` so CI fails on regression.
+- [x] Enforce thresholds in `vitest.config.ts` so CI fails on regression.
+
+**Status (done 2026-06-12, 33 new tests; suite final: 354 vitest tests + 27
+E2E specs). Coverage: 93.5% lines / 90.0% statements / 90.3% functions /
+75.7% branches. Thresholds enforced in vitest.config.ts (lines 92 /
+statements 88 / functions 88 / branches 73) — CI fails below them; raise
+them as coverage grows, never lower.** Highlights: editorKeymap drives real
+keydown events through real CodeMirror views (Mod maps to Ctrl in jsdom);
+the worker modules run with a stubbed `self`; the ruby tree-sitter wasm
+loads for real in the lineHighlight test; the LSP manager install flow runs
+a real external install command (`touch` as the installer); SearchPanel
+keyboard navigation, StatusBar formatting branches, and Resizer drag math
+are covered. Remaining uncovered code is mostly defensive branches
+(connection-teardown races, jsdom-unreachable hover coordinates) and the
+windows.ts dev-URL loader.
 
 What we deliberately do NOT count toward coverage: `src/main/index.ts`
 bootstrap, `main.tsx`, `env.d.ts`, asset/wasm files, `App.tsx` shell-only

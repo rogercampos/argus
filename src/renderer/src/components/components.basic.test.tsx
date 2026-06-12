@@ -165,10 +165,21 @@ describe('DefinitionPicker', () => {
     render(<DefinitionPicker choices={choices} />)
     expect(screen.getByText('2 definitions')).toBeInTheDocument()
 
-    await user.keyboard('{ArrowDown}{Enter}')
+    await user.keyboard('{ArrowDown}')
+    // wait for the selection to actually move before confirming with Enter
+    await waitFor(() => {
+      const selected = screen
+        .getAllByRole('button')
+        .find((b) => b.className.includes('bg-selection'))
+      expect(selected?.textContent).toContain('math.ts')
+    })
+    await user.keyboard('{Enter}')
     await waitFor(() => expect(useWorkspaceStore.getState().definitionChoices).toBeNull())
-    const tabs = useWorkspaceStore.getState().tabs
-    expect(tabs.tabs[tabs.activeIndex]?.path).toBe('src/lib/math.ts')
+    // the picker closes before navigateTo finishes opening the file
+    await waitFor(() => {
+      const tabs = useWorkspaceStore.getState().tabs
+      expect(tabs.tabs[tabs.activeIndex]?.path).toBe('src/lib/math.ts')
+    })
   })
 
   it('shortens ruby gem and stdlib paths', () => {

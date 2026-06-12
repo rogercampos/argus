@@ -90,6 +90,8 @@ export interface TestApi {
   calls: RecordedCalls
   /** mutate to control what the LSP methods answer */
   lsp: CannedLsp
+  /** mutate to control what slowOps() reports */
+  slowOps: Array<{ time: number; operation: string; ms: number }>
   /** dir holding persisted state, in case a test wants to inspect it */
   stateDir: string
   emitMenuCommand(command: MenuCommand): void
@@ -121,6 +123,7 @@ export function createTestApi(workspacePath: string): TestApi {
   }
 
   const lsp: CannedLsp = { hover: null, definitions: [], completions: [], symbols: [] }
+  const slowOps: Array<{ time: number; operation: string; ms: number }> = []
 
   const menuCommands = new Channel<[MenuCommand]>()
   const watchEvents = new Channel<[WatchEvent[]]>()
@@ -176,7 +179,7 @@ export function createTestApi(workspacePath: string): TestApi {
     copyToClipboard: async (text) => {
       calls.clipboardWrites.push(text)
     },
-    slowOps: async () => [],
+    slowOps: async () => slowOps,
 
     onGitState: (handler) => gitState.subscribe(handler),
     onGitStatusDiff: (handler) => gitStatusDiff.subscribe(handler),
@@ -220,6 +223,7 @@ export function createTestApi(workspacePath: string): TestApi {
     api,
     calls,
     lsp,
+    slowOps,
     stateDir,
     emitMenuCommand: (command) => menuCommands.emit(command),
     emitWatchEvents: (events) => watchEvents.emit(events),

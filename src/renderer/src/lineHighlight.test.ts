@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { lineSpansFor } from './lineHighlight'
+import { describe, expect, it, vi } from 'vitest'
+import { lineSpansFor, onLineHighlightReady } from './lineHighlight'
 
 describe('search-result line highlighting', () => {
   it('highlights a TypeScript line with the shared tsh classes', () => {
@@ -42,4 +42,23 @@ describe('search-result line highlighting', () => {
       last = span.to
     }
   })
+})
+
+describe('ruby lines (lazily-loaded tree-sitter grammar)', () => {
+  it('returns null while loading, then real spans once the wasm is ready', async () => {
+    let readyCalls = 0
+    const unsubscribe = onLineHighlightReady(() => readyCalls++)
+
+    // first ask kicks off the lazy load
+    expect(lineSpansFor('app/models/user.rb', 'def hello')).toBeNull()
+
+    await vi.waitFor(() => expect(readyCalls).toBeGreaterThan(0), { timeout: 15_000 })
+    unsubscribe()
+
+    const text = 'def hello # greet'
+    const spans = lineSpansFor('app/models/user.rb', text) ?? []
+    const byClass = new Map(spans.map((s) => [s.className, text.slice(s.from, s.to)] as const))
+    expect(byClass.get('tsh-keyword')).toBe('def')
+    expect(byClass.get('tsh-comment')).toBe('# greet')
+  }, 20_000)
 })

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type CapturedMenuItem, electronStub, StubBrowserWindow } from '../../test/electronStub'
 import type { MenuCommand } from '../shared/types'
 import { rebuildApplicationMenu } from './menu'
@@ -122,5 +122,25 @@ describe('application menu (spec 02)', () => {
     })
     const expected = recentDir.replace(process.env.HOME ?? '', '~')
     expect(recentItems.map((i) => i.label)).toContain(expected)
+  })
+
+  it('shows a disabled placeholder when there are no recent workspaces', async () => {
+    const { removeRecentWorkspace } = await import('./state')
+    // earlier menu clicks opened workspace windows whose fire-and-forget
+    // recents writes may still be in flight — retry until removal sticks
+    await vi.waitFor(
+      async () => {
+        await removeRecentWorkspace(recentDir)
+        await rebuildApplicationMenu()
+        let recentItems: CapturedMenuItem[] = []
+        walk(electronStub.applicationMenu()?.items ?? [], (item) => {
+          if (item.label === 'Open Recent' && Array.isArray(item.submenu)) {
+            recentItems = item.submenu
+          }
+        })
+        expect(recentItems).toEqual([{ label: 'No Recent Workspaces', enabled: false }])
+      },
+      { timeout: 5000 }
+    )
   })
 })

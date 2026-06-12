@@ -105,6 +105,27 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
 
+if (typeof Element !== 'undefined' && !Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+}
+
+if (typeof navigator !== 'undefined' && !navigator.clipboard) {
+  const clipboardWrites: string[] = []
+  Object.defineProperty(navigator, 'clipboard', {
+    // userEvent.setup() replaces this with its own stub — stay configurable
+    configurable: true,
+    value: {
+      writeText: (text: string): Promise<void> => {
+        clipboardWrites.push(text)
+        return Promise.resolve()
+      },
+      /** test hook */
+      __writes: clipboardWrites
+    }
+  })
+}
+
 /**
  * jsdom has no Worker. The app's two workers are thin postMessage wrappers
  * around pure modules; this shim speaks the same protocols but calls the REAL

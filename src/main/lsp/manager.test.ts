@@ -182,3 +182,51 @@ describe('lspManagerFor lifecycle', () => {
     expect(lspManagerFor(window, electronStub.userDataDir)).toBeNull()
   })
 })
+
+describe('LSP manager server install (spec 08)', () => {
+  it('runs the install command once, then starts the freshly-installed server', async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'argus-lsp-install-')))
+    writeFileSync(join(root, 'package.json'), '{}')
+    writeFileSync(join(root, 'app.ts'), 'const x = 1\n')
+    const marker = join(root, 'installed-marker')
+
+    const installable: ServerConfig[] = [
+      {
+        name: 'installable-ls',
+        languages: ['typescript'],
+        projectKind: 'javascript',
+        perProjectInstance: true,
+        command: async () => {
+          // "installed" only once the install step created the marker
+          const { existsSync } = await import('node:fs')
+          return existsSync(marker) ? { cmd: process.execPath, args: [FAKE_SERVER] } : null
+        },
+        // the installer is an external command — a real /usr/bin/touch here
+        install: () => ({ cmd: 'touch', args: [marker] })
+      }
+    ]
+
+    const stub = new StubBrowserWindow()
+    const manager = new LspManager(root, stub as unknown as BrowserWindow, () => installable)
+    try {
+      await manager.didOpen('app.ts', 'const x = 1\n')
+      const hover = await vi.waitFor(
+        async () => {
+          const result = await manager.hover('app.ts', 0, 3)
+          expect(result).not.toBeNull()
+          return result
+        },
+        { timeout: 15_000 }
+      )
+      expect(hover).toEqual({ contents: 'fake hover' })
+
+      // the one-time install reported itself as a background task
+      const tasks = stub.webContents.sent.filter((m) => m.channel === 'task:update')
+      const names = tasks.map((m) => (m.args[0] as { name: string }).name)
+      expect(names).toContain('Installing installable-ls (one-time setup)')
+    } finally {
+      manager.dispose()
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 30_000)
+})

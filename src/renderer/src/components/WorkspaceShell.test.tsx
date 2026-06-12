@@ -193,6 +193,47 @@ describe('WorkspaceShell (spec 02)', () => {
     await waitFor(() => expect(useWorkspaceStore.getState().fileError).toBeNull())
   })
 
+  it('find opens the in-editor search panel on the live view', async () => {
+    await useWorkspaceStore.getState().openFile('src/lib/math.ts')
+    await waitFor(() => expect(activeView()).not.toBeNull())
+    testApi.emitMenuCommand('find')
+    await waitFor(() => expect(document.querySelector('.cm-search')).not.toBeNull())
+    testApi.emitMenuCommand('replace')
+    expect(document.querySelector('.cm-search')).not.toBeNull()
+  })
+
+  it('jump back and forward retrace navigation', async () => {
+    await useWorkspaceStore.getState().navigateTo('src/lib/math.ts', { line: 1 })
+    await useWorkspaceStore.getState().navigateTo('src/lib/greet.ts', { line: 1 })
+    testApi.emitMenuCommand('jump-back')
+    await waitFor(() => expect(activeTabPath()).toBe('src/lib/math.ts'))
+    testApi.emitMenuCommand('jump-forward')
+    await waitFor(() => expect(activeTabPath()).toBe('src/lib/greet.ts'))
+  })
+
+  it('copy-relative-path puts the active tab path on the clipboard', async () => {
+    await useWorkspaceStore.getState().openFile('src/lib/math.ts')
+    const writes: string[] = []
+    // userEvent may have swapped the clipboard stub; intercept whatever is there
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (text: string): Promise<void> => {
+          writes.push(text)
+          return Promise.resolve()
+        }
+      }
+    })
+    testApi.emitMenuCommand('copy-relative-path')
+    await waitFor(() => expect(writes).toContain('src/lib/math.ts'))
+  })
+
+  it('unhandled commands are ignored without crashing', async () => {
+    testApi.emitMenuCommand('toggle-inlay-hints')
+    testApi.emitMenuCommand('format-document')
+    testApi.emitMenuCommand('new-file')
+  })
+
   it('go-to-definition with multiple results opens the picker', async () => {
     await useWorkspaceStore.getState().openFile('src/lib/math.ts')
     testApi.lsp.definitions = [

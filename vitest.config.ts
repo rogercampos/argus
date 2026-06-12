@@ -80,9 +80,20 @@ export default defineConfig({
         'src/renderer/src/main.tsx',
         'src/renderer/src/App.tsx',
         'src/renderer/src/assets/**',
-        'src/renderer/src/ruby/*.wasm'
+        'src/renderer/src/ruby/*.wasm',
+        // not JavaScript: the uncovered-files pass cannot parse these
+        'src/**/*.html',
+        'src/**/*.css'
       ],
-      reporter: ['text', 'html', 'json-summary']
+      reporter: ['text', 'html', 'json-summary'],
+      // ratchet: raise these as coverage grows, never lower them
+      // (current: 93.5% lines / 90.0% stmts / 90.3% funcs / 75.7% branches)
+      thresholds: {
+        lines: 92,
+        statements: 88,
+        functions: 88,
+        branches: 73
+      }
     }
   }
 })

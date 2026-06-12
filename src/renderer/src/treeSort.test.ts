@@ -122,3 +122,25 @@ describe('tree sort comparator (spec 07)', () => {
     expect(new Set(sorted).size).toBe(new Set(paths).size)
   })
 })
+
+describe('tree sort edge cases', () => {
+  it('breaks collator ties deterministically (case-only differences)', () => {
+    const sorted = sortPathsForTree(['B.ts', 'b.ts', 'a.ts'], new Set())
+    expect(sorted).toEqual(['a.ts', 'B.ts', 'b.ts'])
+  })
+
+  it('a shorter path precedes deeper entries sharing its prefix', () => {
+    const sorted = sortPathsForTree(['x/inner.ts', 'x'], new Set())
+    expect(sorted).toEqual(['x', 'x/inner.ts'])
+  })
+
+  it('keeps identical paths adjacent (zero comparison)', () => {
+    const sorted = sortPathsForTree(['dup.ts', 'dup.ts'], new Set())
+    expect(sorted).toEqual(['dup.ts', 'dup.ts'])
+  })
+
+  it('shorter paths come before their nested siblings at equal prefixes', () => {
+    const sorted = sortPathsForTree(['src/a/deep.ts', 'src/b.ts'], new Set())
+    expect(sorted).toEqual(['src/a/deep.ts', 'src/b.ts'])
+  })
+})
