@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LspSymbol } from '../../../shared/types'
 import { useWorkspaceStore } from '../store'
 import { Modal, ModalRow } from './Modal'
+import { PathTail } from './PathTail'
 
 const SYMBOL_KIND_LABELS: Record<number, string> = {
   5: 'class',
@@ -93,9 +94,10 @@ export function GoToSymbolModal(): React.JSX.Element {
             {symbol.containerName && (
               <span className="truncate text-[11px] text-fg-dim">{symbol.containerName}</span>
             )}
-            <span className="ml-auto truncate pl-4 font-mono text-[10px] text-fg-dim">
-              {symbol.location.path}
-            </span>
+            <PathTail
+              text={symbol.location.path}
+              className="ml-auto truncate pl-4 font-mono text-[10px] text-fg-dim"
+            />
           </ModalRow>
         ))}
         {symbols.length === 0 && query && (

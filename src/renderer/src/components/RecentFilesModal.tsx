@@ -3,6 +3,7 @@ import { fuzzyMatch } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
 import { FileIcon } from './FileIcon'
 import { Highlighted, Modal, ModalRow } from './Modal'
+import { PathTail } from './PathTail'
 
 /** Recent Files popup (spec 05): fuzzy filter on filename, intent-based list. */
 export function RecentFilesModal(): React.JSX.Element {
@@ -84,9 +85,10 @@ export function RecentFilesModal(): React.JSX.Element {
               <Highlighted text={entry.name} indices={entry.indices} />
             </span>
             {entry.hint && (
-              <span className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim">
-                {entry.hint}
-              </span>
+              <PathTail
+                text={entry.hint}
+                className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim"
+              />
             )}
           </ModalRow>
         ))}

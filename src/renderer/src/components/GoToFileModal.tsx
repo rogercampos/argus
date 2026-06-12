@@ -3,6 +3,7 @@ import type { RankedItem } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
 import { FileIcon } from './FileIcon'
 import { Highlighted, Modal, ModalRow } from './Modal'
+import { PathTail } from './PathTail'
 
 /** Workspace paths minus excluded prefixes (spec 07). */
 function visiblePaths(): string[] {
@@ -148,7 +149,10 @@ export function GoToFileModal(): React.JSX.Element {
               <span className="truncate">
                 <Highlighted text={name} indices={nameIndices} />
               </span>
-              <span className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim">{dir}</span>
+              <PathTail
+                text={dir}
+                className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim"
+              />
             </ModalRow>
           )
         })}
