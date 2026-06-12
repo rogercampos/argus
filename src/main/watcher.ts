@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { relative, sep } from 'node:path'
 import watcher, { type AsyncSubscription } from '@parcel/watcher'
 import type { BrowserWindow } from 'electron'
@@ -14,6 +15,10 @@ const subscriptions = new Map<number, AsyncSubscription>()
 export async function startWatching(window: BrowserWindow, root: string): Promise<void> {
   if (subscriptions.has(window.id)) return
 
+  // the watcher reports realpaths; a symlinked root (e.g. /var -> /private/var
+  // on macOS) would break the relative() mapping below
+  const resolvedRoot = realpathSync(root)
+
   const subscription = await watcher.subscribe(
     root,
     (error, events) => {
@@ -21,7 +26,7 @@ export async function startWatching(window: BrowserWindow, root: string): Promis
       const mapped: WatchEvent[] = []
       const allRelPaths: string[] = []
       for (const event of events) {
-        const rel = relative(root, event.path).split(sep).join('/')
+        const rel = relative(resolvedRoot, event.path).split(sep).join('/')
         allRelPaths.push(rel)
         // .git internals are handled by the git monitor, not the renderer
         if (rel.startsWith('.git/') || rel === '.git') continue

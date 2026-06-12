@@ -26,6 +26,9 @@ import { buildServerRegistry, languageIdForPath, type ServerConfig } from './ser
 
 const MAX_RESTARTS = 3
 
+/** E2E runs disable language servers + semgrep: no installs, no spawned servers. */
+const LSP_DISABLED = process.env.ARGUS_DISABLE_LSP === '1'
+
 interface OpenDoc {
   relPath: string
   languageId: string
@@ -60,6 +63,7 @@ export class LspManager {
 
   /** Re-scan hooks for non-LSP diagnostics providers (semgrep). */
   noteFileSaved(relPath: string): void {
+    if (LSP_DISABLED) return
     this.semgrep.scan(relPath)
   }
 
@@ -93,7 +97,7 @@ export class LspManager {
 
   /** All running instances that serve this file's language. */
   private async instancesForFile(relPath: string): Promise<LspInstance[]> {
-    if (this.disposed) return []
+    if (this.disposed || LSP_DISABLED) return []
     const languageId = languageIdForPath(relPath)
     if (!languageId) return []
     const env = await resolveShellEnv(this.root)

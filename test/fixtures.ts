@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -29,7 +29,9 @@ export interface FixtureRepo {
 }
 
 export function makeFixtureRepo(spec: FixtureSpec = {}): FixtureRepo {
-  const root = mkdtempSync(join(tmpdir(), 'argus-fixture-'))
+  // realpath: macOS tmpdir lives behind a /var -> /private/var symlink, and
+  // the app sees realpaths (watcher events, git output)
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'argus-fixture-')))
   const git = (...args: string[]): string =>
     execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' }).toString()
 

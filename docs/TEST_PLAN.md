@@ -84,35 +84,52 @@ Untested: everything else — all React components, `store.ts` (16 KB),
 Few, slow, high-value. Each scenario uses a fresh fixture repo and isolated
 user data. Target: ~12 specs covering the main flows.
 
-- [ ] **Launch & welcome**: launch with no state → welcome window; open a
+- [x] **Launch & welcome**: launch with no state → welcome window; open a
       workspace from the recent list (pre-seeded state); remove a recent entry.
-- [ ] **Open workspace & browse**: file tree paints (top-level first, then
+- [x] **Open workspace & browse**: file tree paints (top-level first, then
       full), expand folders, click a file → opens in editor with content.
-- [ ] **Edit & save**: type in editor → dirty indicator on tab → Cmd+S →
+- [x] **Edit & save**: type in editor → dirty indicator on tab → Cmd+S →
       file content on disk updated, dirty cleared. Save All with two dirty
       tabs.
-- [ ] **Tabs**: open several files, switch via click and Ctrl+Tab/menu
+- [x] **Tabs**: open several files, switch via click and Ctrl+Tab/menu
       commands, close tab, active tab follows correctly.
-- [ ] **Go to file**: Cmd+P style modal — fuzzy query, arrow-key navigation,
+- [x] **Go to file**: Cmd+P style modal — fuzzy query, arrow-key navigation,
       Enter opens the right file. Recent-files modal variant.
-- [ ] **Global search**: search a term → streamed results grouped by file,
+- [x] **Global search**: search a term → streamed results grouped by file,
       flag toggles (case/word/regex) change results, click result opens file
       at the right line with the match highlighted, search tabs persist.
-- [ ] **Replace all**: pattern + replacement across the fixture repo →
+- [x] **Replace all**: pattern + replacement across the fixture repo →
       files changed on disk, result count reported.
-- [ ] **File watcher**: create/modify/delete a file on disk externally →
+- [x] **File watcher**: create/modify/delete a file on disk externally →
       tree updates, git badge appears.
-- [ ] **Git presence**: branch name in status bar; modify a file → modified
+- [x] **Git presence**: branch name in status bar; modify a file → modified
       decoration in the tree; switch branch externally → status bar updates.
-- [ ] **Navigation**: go-to-line modal; jump back/forward across files.
-- [ ] **Persistence (restart)**: open tabs, resize panels, star a folder →
+- [x] **Navigation**: go-to-line modal; jump back/forward across files.
+- [x] **Persistence (restart)**: open tabs, resize panels, star a folder →
       quit → relaunch → tabs, active tab, layout, starred folders restored;
       cursor/scroll position restored per file.
-- [ ] **Editor find/replace in file** (CodeMirror search panel) via menu.
+- [x] **Editor find/replace in file** (CodeMirror search panel) via menu.
 
 Out of E2E scope (covered at lower layers instead): LSP features (need
 language servers installed — environment-dependent), process monitor,
 semgrep, Rails schema panel.
+
+**Status (done 2026-06-12, 27 specs green): all flows above are covered, with
+these bits deferred to Phase 3 (renderer integration): git badges in the tree,
+search-tab persistence across restarts, per-file cursor/scroll restore, and
+single-match replace from the modal.**
+
+E2E notes:
+- Runs are headless-style: `ARGUS_HIDE_WINDOWS=1` (never shows windows, hides
+  the dock icon, disables background throttling) and `ARGUS_DISABLE_LSP=1`
+  (no server installs/spawns). Set `ARGUS_E2E_HEADED=1` to watch locally.
+- Menu commands are sent over the real 'menu' channel via webContents (native
+  macOS menus can't be driven by synthesized keys); the menu template itself
+  is covered in Phase 2.
+- Two real bugs found and fixed by this phase: (1) a symlinked workspace root
+  (e.g. /var -> /private/var) broke watcher relPaths for open-document
+  reloads; (2) external rewrites surfacing as 'create' events (FSEvents
+  coalescing, atomic-rename writers) did not reload open documents.
 
 ---
 

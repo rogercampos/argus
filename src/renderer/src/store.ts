@@ -316,16 +316,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     window.api.onWatchEvents((events) => {
       let structureChanged = false
       for (const event of events) {
-        if (event.type === 'update') {
-          if (documents.get(event.relPath)) {
-            void documents.reloadFromDisk(event.relPath, activeView()).then((changed) => {
-              if (changed && get().tabs.tabs[get().tabs.activeIndex]?.path === event.relPath) {
-                set({ activeDocEpoch: get().activeDocEpoch + 1 })
-              }
-            })
-          }
-        } else {
-          structureChanged = true
+        if (event.type !== 'update') structureChanged = true
+        // rewrites of an open file can surface as 'create' (atomic write via
+        // rename; FSEvents coalescing on macOS), so any non-delete event on
+        // an open document re-checks its content
+        if (event.type !== 'delete' && documents.get(event.relPath)) {
+          void documents.reloadFromDisk(event.relPath, activeView()).then((changed) => {
+            if (changed && get().tabs.tabs[get().tabs.activeIndex]?.path === event.relPath) {
+              set({ activeDocEpoch: get().activeDocEpoch + 1 })
+            }
+          })
         }
       }
       if (structureChanged) scheduleTreeRelist()

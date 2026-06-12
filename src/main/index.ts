@@ -17,6 +17,11 @@ import {
 if (process.env.ARGUS_USER_DATA) {
   app.setPath('userData', process.env.ARGUS_USER_DATA)
 }
+// E2E runs keep windows hidden; without a dock icon the run is fully invisible
+// and never steals focus from the user.
+if (process.env.ARGUS_HIDE_WINDOWS === '1') {
+  app.whenReady().then(() => app.dock?.hide())
+}
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {

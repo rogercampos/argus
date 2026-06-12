@@ -14,6 +14,13 @@ const workspaceWindows = new Map<number, { window: BrowserWindow; workspacePath:
 let welcomeWindow: BrowserWindow | null = null
 let quitting = false
 
+/**
+ * E2E runs set ARGUS_HIDE_WINDOWS: windows are never shown on screen (Electron
+ * has no real headless mode). Background throttling must be off so rAF/timers
+ * keep running in the never-visible renderer.
+ */
+const HIDE_WINDOWS = process.env.ARGUS_HIDE_WINDOWS === '1'
+
 export function isQuitting(): boolean {
   return quitting
 }
@@ -88,15 +95,18 @@ export function openWorkspaceWindow(
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      additionalArguments: [`--argus-workspace=${workspacePath}`]
+      additionalArguments: [`--argus-workspace=${workspacePath}`],
+      backgroundThrottling: !HIDE_WINDOWS
     }
   })
 
   workspaceWindows.set(window.id, { window, workspacePath })
   void touchRecentWorkspace(workspacePath)
 
-  if (options.maximized) window.maximize()
-  window.on('ready-to-show', () => window.show())
+  if (options.maximized && !HIDE_WINDOWS) window.maximize()
+  window.on('ready-to-show', () => {
+    if (!HIDE_WINDOWS) window.show()
+  })
   window.on('moved', persistAppStateDebounced)
   window.on('resized', persistAppStateDebounced)
   window.on('closed', () => {
@@ -132,12 +142,15 @@ export function openWelcomeWindow(): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      additionalArguments: ['--argus-welcome']
+      additionalArguments: ['--argus-welcome'],
+      backgroundThrottling: !HIDE_WINDOWS
     }
   })
 
   welcomeWindow = window
-  window.on('ready-to-show', () => window.show())
+  window.on('ready-to-show', () => {
+    if (!HIDE_WINDOWS) window.show()
+  })
   window.on('closed', () => {
     welcomeWindow = null
     // Closing the welcome window quits the app (spec 01)
