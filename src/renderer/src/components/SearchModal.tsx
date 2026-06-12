@@ -137,6 +137,8 @@ function ResultRow({
     <button
       type="button"
       ref={ref}
+      // keep focus in the search input so arrow-key navigation keeps working
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
       onDoubleClick={onOpen}
       className={`flex h-[26px] w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left ${
@@ -321,7 +323,11 @@ export function SearchModal(): React.JSX.Element {
               key={`${match.path}:${match.line}:${match.origSubmatches[0]?.start ?? index}`}
               match={match}
               selected={index === s.modalSelected}
-              onSelect={() => useSearchStore.setState({ modalSelected: index })}
+              onSelect={() => {
+                useSearchStore.setState({ modalSelected: index })
+                // focus may sit elsewhere (e.g. the preview editor)
+                inputRef.current?.focus()
+              }}
               onOpen={() => openMatch(match)}
             />
           ))}
