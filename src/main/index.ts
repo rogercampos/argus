@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
 import { registerIpcHandlers } from './ipc'
 import { rebuildApplicationMenu } from './menu'
 import { startProcStats } from './procStats'
@@ -49,11 +49,6 @@ if (!gotLock) {
     startProcStats()
     await rebuildApplicationMenu()
     await restoreSession()
-
-    app.on('activate', () => {
-      // Dock icon click with no windows: show welcome
-      if (BrowserWindow.getAllWindows().length === 0) openWelcomeWindow()
-    })
   })
 
   // persistAppState writes asynchronously; hold the quit until it lands once,
@@ -69,6 +64,11 @@ if (!gotLock) {
     })
   })
 
+  // Argus quits when nothing is open on every platform (spec 01: closing the
+  // welcome window quits). Closing the last workspace window reopens the welcome
+  // window (windows.ts), so this only fires once the user dismisses that too —
+  // there is intentionally no "stay alive with no windows" macOS behavior, which
+  // is why no `activate`/reopen handler is needed.
   app.on('window-all-closed', () => {
     app.quit()
   })
