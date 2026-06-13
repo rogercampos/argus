@@ -1,7 +1,7 @@
 import type { ContextMenuItem, ContextMenuOpenContext, FileTreeBatchOperation } from '@pierre/trees'
 import { FileTree as FileTreeModel, preparePresortedFileTreeInput } from '@pierre/trees'
 import { FileTree } from '@pierre/trees/react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, mergePersisted, useWorkspaceStore } from '../store'
 import { makeTreeSort, sortPathsForTree } from '../treeSort'
@@ -190,14 +190,18 @@ export function Sidebar(): React.JSX.Element {
   const rootName = useWorkspaceStore((s) => s.rootName)
   const starredFolders = useWorkspaceStore((s) => s.starredFolders)
 
-  starredRef.current = new Set(starredFolders)
   const starKey = starredFolders.join('\n')
+  const starredSet = useMemo(() => new Set(starredFolders), [starredFolders])
 
   const model = workspaceModel()
 
   useEffect(() => {
+    // publish the star set to the (module-level) ref the sort comparator and
+    // decoration renderer read — an effect, not a render-time mutation — then
+    // (re)sync, which re-sorts/re-renders rows with the fresh set
+    starredRef.current = starredSet
     syncModelPaths(model, paths, starKey)
-  }, [model, paths, starKey])
+  }, [model, paths, starKey, starredSet])
 
   useEffect(() => {
     // Excluded paths render dimmed like git-ignored entries; the tree
