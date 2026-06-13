@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import type { LspDiagnostic } from '../shared/types'
-import { SemgrepRunner } from './semgrep'
+import { parseSemgrepResults, SemgrepRunner } from './semgrep'
 
 /**
  * The semgrep binary is faked with a shell script (external dependency);
@@ -56,6 +56,31 @@ function runner(
     results
   }
 }
+
+describe('parseSemgrepResults', () => {
+  it('maps results to 0-based diagnostics with severity', () => {
+    const diags = parseSemgrepResults(REPORT)
+    expect(diags).toHaveLength(2)
+    expect(diags[0]).toEqual({
+      startLine: 2,
+      startChar: 4,
+      endLine: 2,
+      endChar: 11,
+      severity: 1,
+      message: 'test.rule-id: do not do this',
+      source: 'semgrep'
+    })
+    expect(diags[1].severity).toBe(2)
+  })
+
+  it('returns [] when there are no results', () => {
+    expect(parseSemgrepResults('{}')).toEqual([])
+  })
+
+  it('throws on non-JSON (callers treat that as a real error)', () => {
+    expect(() => parseSemgrepResults('not json')).toThrow()
+  })
+})
 
 describe('semgrep integration (spec 12)', () => {
   const cleanups: string[] = []

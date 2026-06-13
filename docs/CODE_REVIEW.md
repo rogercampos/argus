@@ -180,10 +180,10 @@ All items below were addressed on 2026-06-13 (one commit each).
 - ✅ **`replaceAll` dead branch** (`search.ts:224-227`): both arms of the
   `typeof replaceWith === 'string'` ternary were identical. Already removed when
   `replaceAll` was rewritten for #3 (it no longer uses a JS RegExp at all).
-- **semgrep duplicated parse** (`semgrep.ts:82-99` vs `107-126`): success and
-  catch paths duplicate the whole parse/map block and parse `stdout` twice.
-  Extract a `parseReport(stdout)` helper. The single `this.queue` chain also
-  serializes scans across all files globally, not per-file.
+- ✅ **semgrep duplicated parse** (`semgrep.ts:82-99` vs `107-126`): extracted
+  `parseSemgrepResults(stdout)`; the success and exit-code-1 paths now share it
+  and parse once. The global `this.queue` serialization is left as-is — it's the
+  intended "one scan at a time" behavior (resource control), not a bug.
 - **fuzzy empty-query cost** (`fuzzy.ts:86-87`): `recents.filter(p =>
   paths.includes(p))` is O(recents × paths); use `new Set(paths)`. The full
   `[...paths].sort()` on every empty query (100k items) could be precomputed.
