@@ -175,8 +175,11 @@ content), but deriving `root` from the window and narrowing the exposed
 
 ## Cleanups / minor
 
-- **`replaceAll` dead branch** (`search.ts:224-227`): both arms of the
-  `typeof replaceWith === 'string'` ternary are identical; delete it.
+All items below were addressed on 2026-06-13 (one commit each).
+
+- ✅ **`replaceAll` dead branch** (`search.ts:224-227`): both arms of the
+  `typeof replaceWith === 'string'` ternary were identical. Already removed when
+  `replaceAll` was rewritten for #3 (it no longer uses a JS RegExp at all).
 - **semgrep duplicated parse** (`semgrep.ts:82-99` vs `107-126`): success and
   catch paths duplicate the whole parse/map block and parse `stdout` twice.
   Extract a `parseReport(stdout)` helper. The single `this.queue` chain also
@@ -200,5 +203,3 @@ content), but deriving `root` from the window and narrowing the exposed
   `dir.startsWith(workspaceRoot)` matches `/foo/bar-baz` against `/foo/bar`.
   Harmless at current call sites but latent; compare against `workspaceRoot +
   sep`.
-</content>
-</invoke>
