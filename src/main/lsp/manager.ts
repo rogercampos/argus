@@ -24,7 +24,10 @@ import { buildServerRegistry, languageIdForPath, type ServerConfig } from './ser
  * diagnostics merged by source.
  */
 
+/** Give up on a server after this many failures within RESTART_WINDOW_MS;
+ * older failures age out so transient early crashes don't disable it forever. */
 const MAX_RESTARTS = 3
+const RESTART_WINDOW_MS = 60_000
 
 /** E2E runs disable language servers + semgrep: no installs, no spawned servers. */
 const LSP_DISABLED = process.env.ARGUS_DISABLE_LSP === '1'
@@ -40,7 +43,8 @@ export class LspManager {
   private projects: ProjectRegistry
   /** `${server}:${root}` → instance or in-flight start */
   private instances = new Map<string, Promise<LspInstance | null>>()
-  private restarts = new Map<string, number>()
+  /** server key → timestamps of recent failed starts/crashes (sliding window) */
+  private restarts = new Map<string, number[]>()
   private installing = new Set<string>()
   private openDocs = new Map<string, OpenDoc>()
   /** path → source → diagnostics */
@@ -84,6 +88,21 @@ export class LspManager {
     }
   }
 
+  /** Recent failures for a server, pruned to the sliding window. */
+  private restartCount(key: string): number {
+    const cutoff = Date.now() - RESTART_WINDOW_MS
+    const recent = (this.restarts.get(key) ?? []).filter((at) => at >= cutoff)
+    if (recent.length > 0) this.restarts.set(key, recent)
+    else this.restarts.delete(key)
+    return recent.length
+  }
+
+  private noteRestart(key: string): void {
+    const recent = this.restarts.get(key) ?? []
+    recent.push(Date.now())
+    this.restarts.set(key, recent)
+  }
+
   private abs(relPath: string): string {
     return relPath.startsWith('/') ? relPath : join(this.root, relPath)
   }
@@ -124,7 +143,7 @@ export class LspManager {
       project = await this.projects.ancestorWithKind(project, config.projectKind)
     }
     const key = `${config.name}:${project.root}`
-    if ((this.restarts.get(key) ?? 0) >= MAX_RESTARTS) return null
+    if (this.restartCount(key) >= MAX_RESTARTS) return null
 
     const existing = this.instances.get(key)
     if (existing) {
@@ -171,6 +190,15 @@ export class LspManager {
     if (!command) return null
     void this.maybeAutoUpdate(config, dataDir, env)
 
+    // A crash during the handshake fires both onExit and the catch below; count
+    // the attempt once so a single failure isn't double-charged to the window.
+    let counted = false
+    const noteFailure = (): void => {
+      if (counted) return
+      counted = true
+      this.noteRestart(key)
+    }
+
     try {
       const instance = new LspInstance({
         name: config.name,
@@ -184,7 +212,7 @@ export class LspManager {
         onDiagnostics: (uri, diagnostics) =>
           this.acceptDiagnostics(this.relFromUri(uri), config.name, diagnostics),
         onExit: () => {
-          this.restarts.set(key, (this.restarts.get(key) ?? 0) + 1)
+          noteFailure()
           this.instances.delete(key)
         }
       })
@@ -210,7 +238,8 @@ export class LspManager {
       }
       return instance
     } catch {
-      this.restarts.set(key, (this.restarts.get(key) ?? 0) + 1)
+      // initialize() already killed the instance; just record the attempt
+      noteFailure()
       return null
     }
   }

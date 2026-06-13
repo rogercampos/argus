@@ -14,6 +14,10 @@ import { trackedSpawn } from '../procRegistry'
  * lifecycle (spec 08).
  */
 
+/** A server that never answers `initialize` must not leave the request — and
+ * every request awaiting the instance — pending forever (spec 08). */
+const DEFAULT_INITIALIZE_TIMEOUT_MS = 15_000
+
 export interface LspInstanceOptions {
   name: string
   cmd: string
@@ -23,8 +27,27 @@ export interface LspInstanceOptions {
   windowId?: number
   initializationOptions?: unknown
   settings?: unknown
+  /** override the initialize handshake timeout (tests use a short one) */
+  initializeTimeoutMs?: number
   onDiagnostics: (uri: string, diagnostics: Diagnostic[]) => void
   onExit: () => void
+}
+
+/** Reject if `promise` has not settled within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
 }
 
 export class LspInstance {
@@ -86,35 +109,47 @@ export class LspInstance {
   }
 
   async initialize(): Promise<void> {
-    const result = (await this.connection.sendRequest('initialize', {
-      processId: process.pid,
-      rootUri: `file://${this.root}`,
-      workspaceFolders: [{ uri: `file://${this.root}`, name: this.root.split('/').pop() }],
-      initializationOptions: this.options.initializationOptions,
-      capabilities: {
-        textDocument: {
-          synchronization: { didSave: true },
-          publishDiagnostics: { relatedInformation: true },
-          diagnostic: { dynamicRegistration: false },
-          hover: { contentFormat: ['markdown', 'plaintext'] },
-          completion: {
-            completionItem: {
-              snippetSupport: false,
-              documentationFormat: ['markdown', 'plaintext']
-            }
-          },
-          definition: {},
-          typeDefinition: {},
-          documentSymbol: { hierarchicalDocumentSymbolSupport: true }
-        },
-        workspace: {
-          configuration: true,
-          workspaceFolders: true,
-          didChangeConfiguration: {}
-        },
-        window: { workDoneProgress: false }
-      }
-    })) as { capabilities: Record<string, unknown> }
+    let result: { capabilities: Record<string, unknown> }
+    try {
+      result = (await withTimeout(
+        this.connection.sendRequest('initialize', {
+          processId: process.pid,
+          rootUri: `file://${this.root}`,
+          workspaceFolders: [{ uri: `file://${this.root}`, name: this.root.split('/').pop() }],
+          initializationOptions: this.options.initializationOptions,
+          capabilities: {
+            textDocument: {
+              synchronization: { didSave: true },
+              publishDiagnostics: { relatedInformation: true },
+              diagnostic: { dynamicRegistration: false },
+              hover: { contentFormat: ['markdown', 'plaintext'] },
+              completion: {
+                completionItem: {
+                  snippetSupport: false,
+                  documentationFormat: ['markdown', 'plaintext']
+                }
+              },
+              definition: {},
+              typeDefinition: {},
+              documentSymbol: { hierarchicalDocumentSymbolSupport: true }
+            },
+            workspace: {
+              configuration: true,
+              workspaceFolders: true,
+              didChangeConfiguration: {}
+            },
+            window: { workDoneProgress: false }
+          }
+        }),
+        this.options.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS,
+        `${this.name} initialize`
+      )) as { capabilities: Record<string, unknown> }
+    } catch (error) {
+      // A hung or failed handshake must not leave a zombie process or a
+      // pending promise: kill the server so the manager's restart logic runs.
+      this.kill()
+      throw error instanceof Error ? error : new Error(String(error))
+    }
     this.capabilities = result.capabilities
     await this.connection.sendNotification('initialized', {})
     if (this.options.settings !== undefined) {

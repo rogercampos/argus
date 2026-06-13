@@ -60,6 +60,9 @@ function handle(message) {
   const { id, method, params } = message
   switch (method) {
     case 'initialize':
+      // FAKE_LSP_HANG_INIT=1 simulates a server that spawns but never completes
+      // the handshake, to exercise the client's initialize timeout.
+      if (process.env.FAKE_LSP_HANG_INIT === '1') return
       rootUri = params.rootUri
       respond(id, {
         capabilities: {
