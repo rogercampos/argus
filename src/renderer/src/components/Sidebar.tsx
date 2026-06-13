@@ -309,8 +309,7 @@ export function Sidebar(): React.JSX.Element {
           const next = excluded
             ? state.excludedPaths.filter((p) => p !== path)
             : [...state.excludedPaths, path]
-          useWorkspaceStore.setState({ excludedPaths: next })
-          mergePersisted({ excludedPaths: next })
+          useWorkspaceStore.getState().setExcludedPaths(next)
         }
       ])
 

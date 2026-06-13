@@ -58,6 +58,8 @@ export interface PersistedWorkspaceState {
   recentFiles: string[]
   starredFolders: string[]
   excludedPaths: string[]
+  /** auto-open the Rails AR schema panel for model files (spec 11); default on */
+  railsAutoSchema?: boolean
   searchTabs?: PersistedSearchTab[]
   activeSearchTab?: number
   searchOptions?: { caseSensitive: boolean; wholeWord: boolean; regex: boolean }
@@ -91,7 +93,8 @@ export function defaultWorkspaceState(): PersistedWorkspaceState {
     panels: { ...DEFAULT_PANEL_LAYOUT },
     recentFiles: [],
     starredFolders: [],
-    excludedPaths: [...DEFAULT_EXCLUDED_PATHS]
+    excludedPaths: [...DEFAULT_EXCLUDED_PATHS],
+    railsAutoSchema: true
   }
 }
 

@@ -24,6 +24,7 @@ export type ModalKind =
   | 'go-to-symbol'
   | 'projects'
   | 'slow-ops'
+  | 'settings'
   | null
 
 interface WorkspaceStore {
@@ -46,6 +47,8 @@ interface WorkspaceStore {
   openModal: ModalKind
   lastGoToFileQuery: string
   excludedPaths: string[]
+  /** auto-open the Rails schema panel for AR model files (spec 11) */
+  railsAutoSchema: boolean
   starredFolders: string[]
   projects: ProjectInfo[]
   definitionChoices: LspLocation[] | null
@@ -66,6 +69,10 @@ interface WorkspaceStore {
   closeAllTabs: () => Promise<void>
   cycleTabs: (delta: 1 | -1) => Promise<void>
   setPanels: (update: Partial<PanelLayoutState>) => void
+  /** replace the workspace's excluded paths (Settings) and persist */
+  setExcludedPaths: (paths: string[]) => void
+  /** toggle Rails schema auto-open (Settings) and persist */
+  setRailsAutoSchema: (value: boolean) => void
   setCursor: (cursor: { line: number; col: number } | null) => void
   /** transient, auto-dismissing status message (e.g. "No definition found") */
   notice: string | null
@@ -242,6 +249,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   openModal: null,
   lastGoToFileQuery: '',
   excludedPaths: defaultWorkspaceState().excludedPaths,
+  railsAutoSchema: true,
   starredFolders: [],
   projects: [],
   definitionChoices: null,
@@ -276,6 +284,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         panels: stored.panels,
         recentFiles: stored.recentFiles ?? [],
         excludedPaths: stored.excludedPaths ?? defaultWorkspaceState().excludedPaths,
+        railsAutoSchema: stored.railsAutoSchema ?? true,
         starredFolders: stored.starredFolders ?? []
       })
       // Restore tabs without recency side-effects; only the active doc loads.
@@ -495,6 +504,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   setPanels: (update) => {
     set({ panels: { ...get().panels, ...update } })
     schedulePersist()
+  },
+
+  setExcludedPaths: (paths) => {
+    set({ excludedPaths: paths })
+    mergePersisted({ excludedPaths: paths })
+  },
+
+  setRailsAutoSchema: (value) => {
+    set({ railsAutoSchema: value })
+    mergePersisted({ railsAutoSchema: value })
   },
 
   setCursor: (cursor) => set({ cursor }),

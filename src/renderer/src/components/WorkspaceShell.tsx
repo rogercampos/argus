@@ -18,6 +18,7 @@ import { Resizer } from './Resizer'
 import { SchemaPanel } from './SchemaPanel'
 import { SearchModal } from './SearchModal'
 import { SearchPanel } from './SearchPanel'
+import { SettingsModal } from './SettingsModal'
 import { Sidebar } from './Sidebar'
 import { SlowOpsModal } from './SlowOpsModal'
 import { StatusBar } from './StatusBar'
@@ -137,6 +138,9 @@ export function WorkspaceShell(): React.JSX.Element {
       case 'show-slow-ops':
         state.setModal('slow-ops')
         break
+      case 'open-settings':
+        state.setModal('settings')
+        break
       default:
         // Commands for features from later stages are ignored for now
         break
@@ -145,14 +149,17 @@ export function WorkspaceShell(): React.JSX.Element {
 
   useEffect(() => window.api.onMenuCommand(onMenuCommand), [onMenuCommand])
 
-  // Rails schema panel follows the active model file (spec 11)
+  // Rails schema panel follows the active model file (spec 11). Auto-open is
+  // a setting; when off we still compute the schema (so manually opening the
+  // panel shows it) but never open/close the panel on the user's behalf.
   const tabs = useWorkspaceStore((s) => s.tabs)
+  const railsAutoSchema = useWorkspaceStore((s) => s.railsAutoSchema)
   const activePath = tabs.tabs[tabs.activeIndex]?.path ?? null
   useEffect(() => {
     if (!activePath || !/app\/models\/.+\.rb$/.test(activePath)) {
       useWorkspaceStore.setState({ schemaInfo: null })
       const { panels, setPanels } = useWorkspaceStore.getState()
-      if (panels.rightVisible) setPanels({ rightVisible: false })
+      if (railsAutoSchema && panels.rightVisible) setPanels({ rightVisible: false })
       return
     }
     void window.api.railsSchemaFor(activePath).then((schemaInfo) => {
@@ -162,11 +169,12 @@ export function WorkspaceShell(): React.JSX.Element {
       )
         return
       useWorkspaceStore.setState({ schemaInfo })
+      if (!railsAutoSchema) return
       const { panels, setPanels } = useWorkspaceStore.getState()
       if (schemaInfo && !panels.rightVisible) setPanels({ rightVisible: true })
       if (!schemaInfo && panels.rightVisible) setPanels({ rightVisible: false })
     })
-  }, [activePath])
+  }, [activePath, railsAutoSchema])
 
   const openModal = useWorkspaceStore((s) => s.openModal)
   const searchModalOpen = useSearchStore((s) => s.modalOpen)
@@ -180,6 +188,7 @@ export function WorkspaceShell(): React.JSX.Element {
       {openModal === 'go-to-symbol' && <GoToSymbolModal />}
       {openModal === 'projects' && <ProjectsModal />}
       {openModal === 'slow-ops' && <SlowOpsModal />}
+      {openModal === 'settings' && <SettingsModal />}
       {searchModalOpen && <SearchModal />}
       {definitionChoices && <DefinitionPicker choices={definitionChoices} />}
       <TitleBar />
