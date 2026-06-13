@@ -66,7 +66,8 @@ let persistTimer: NodeJS.Timeout | null = null
 function persistAppStateDebounced(): void {
   if (persistTimer) clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
-    void persistAppState()
+    // best-effort: a failed session write must not become an unhandled rejection
+    void persistAppState().catch(() => {})
   }, 2000)
 }
 
@@ -101,7 +102,8 @@ export function openWorkspaceWindow(
   })
 
   workspaceWindows.set(window.id, { window, workspacePath })
-  void touchRecentWorkspace(workspacePath)
+  // best-effort recents update; never let it surface as an unhandled rejection
+  void touchRecentWorkspace(workspacePath).catch(() => {})
 
   if (options.maximized && !HIDE_WINDOWS) window.maximize()
   window.on('ready-to-show', () => {

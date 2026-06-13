@@ -58,10 +58,14 @@ if (!gotLock) {
     markQuitting()
     if (finalPersistDone) return
     event.preventDefault()
-    void persistAppState().finally(() => {
-      finalPersistDone = true
-      app.quit() // re-quit; this pass runs normally (windows close, children die)
-    })
+    // .catch before .finally: a failed write must still let the quit proceed
+    // rather than escaping as an unhandled rejection
+    void persistAppState()
+      .catch(() => {})
+      .finally(() => {
+        finalPersistDone = true
+        app.quit() // re-quit; this pass runs normally (windows close, children die)
+      })
   })
 
   // Argus quits when nothing is open on every platform (spec 01: closing the

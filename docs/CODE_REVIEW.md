@@ -211,3 +211,19 @@ All items below were addressed on 2026-06-13 (one commit each).
   `isWithin(root, dir)` (`dir === root || dir.startsWith(root + sep)`), so a
   sibling like `/foo/bar-baz` is no longer treated as inside `/foo/bar`.
   Regression test added in `lsp.test.ts`.
+
+## Flaky test
+
+- ✅ **`watcher.test.ts` flaked under full-suite CPU load** in two ways, both
+  fixed:
+  1. *Timeout* — the real native `@parcel/watcher` occasionally delivered events
+     later than the 5s default test timeout when the whole suite saturated the
+     CPU. The tests now use generous timeouts (`vi.waitFor` returns the instant
+     the event lands, so green runs aren't slowed) and `retry: 2`; a genuinely
+     broken watcher still fails every attempt.
+  2. *Unhandled rejection* — fire-and-forget best-effort state writes
+     (`touchRecentWorkspace`, the debounced/quit `persistAppState`) could reject
+     and surface as an unhandled rejection that vitest charged to whatever test
+     was running. They now `.catch()` at the fire-and-forget sites
+     (`windows.ts`, `index.ts`); a failed best-effort write is non-fatal by
+     design.
