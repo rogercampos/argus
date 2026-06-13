@@ -14,6 +14,8 @@ export type FileWriteResult = { ok: true } | { ok: false; message: string }
 export interface WindowInitData {
   kind: 'welcome' | 'workspace'
   workspacePath: string | null
+  /** the user's home directory, for `~` expansion in the renderer */
+  homeDir: string
 }
 
 export interface RecentWorkspaceEntry {
@@ -253,6 +255,8 @@ export interface SearchProgress {
   done: boolean
   total: number
   capped: boolean
+  /** set on the final batch when ripgrep failed (e.g. an invalid regex) */
+  error?: string
 }
 
 export interface PersistedSearchTab {
@@ -369,5 +373,5 @@ export interface ArgusApi {
   replaceAll(
     options: SearchOptions,
     replacement: string
-  ): Promise<{ filesChanged: number; replacements: number }>
+  ): Promise<{ filesChanged: number; replacements: number; error?: string }>
 }

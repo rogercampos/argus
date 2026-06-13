@@ -58,7 +58,10 @@ server that crashes immediately after a successful handshake restart forever.
 
 ## Medium
 
-### 3. `replaceAll` re-matches with JS RegExp but searched with ripgrep (Rust regex)
+> Items #3, #4, and #5 were **fixed on 2026-06-13**. #6 is intentionally left as
+> designed (external changes always overwrite the editor buffer). See notes.
+
+### 3. `replaceAll` re-matches with JS RegExp but searched with ripgrep (Rust regex) ✅ FIXED
 `src/main/search.ts:201-203`. Matches are found by ripgrep, then replacement
 re-derives matches with `new RegExp(source, flags)`. In regex mode:
 - `new RegExp(pattern)` is built outside the per-file `try` (line 203) — a
@@ -72,25 +75,43 @@ Also `wholeWord` uses `\b…\b` (line 202), not identical to rg's `--word-regexp
 Fixed-string mode is fine. At minimum guard the `new RegExp` and surface
 invalid-pattern errors.
 
-### 4. ripgrep stderr is discarded → invalid pattern looks like "no results"
+**Resolution:** `replaceAll` no longer re-implements matching. It runs ripgrep
+with `-r` and `--json`, which makes ripgrep compute each replacement with the
+*same* engine that matched (capture groups included), and reports per-submatch
+`absolute_offset`/byte ranges plus the resolved `replacement.text`. Each file is
+then rewritten by byte-splicing those ranges into the `Buffer`, so multi-byte
+UTF-8 is handled correctly and there is no JS-vs-Rust regex divergence and no
+`new RegExp` that can throw. In literal (non-regex) mode `$` is escaped to `$$`
+so it stays literal. Covered by new tests in `search.test.ts` (literal `$`,
+multi-byte UTF-8, missing trailing newline, and the error path).
+
+### 4. ripgrep stderr is discarded → invalid pattern looks like "no results" ✅ FIXED
 `src/main/search.ts:69` uses `stdio: ['ignore','pipe','ignore']`; a non-zero rg
 exit (bad regex) produces an empty, "done" result. The user can't distinguish a
 malformed pattern from a genuine no-match. Capture stderr and propagate an error
 flag in `SearchProgress`.
 
-### 5. `~` expansion in Go-to-File guesses the home dir from the workspace path
+**Resolution:** `runSearch` now pipes stderr and inspects the exit code (0 =
+matches, 1 = no matches, anything else = error) and sets `SearchProgress.error`
+on the final batch. `replaceAll` returns `{ error }` and does nothing on a bad
+pattern. The search modal and the search panel render the error in red instead
+of "No results", and Replace All shows "Replace failed: …".
+
+### 5. `~` expansion in Go-to-File guesses the home dir from the workspace path ✅ FIXED
 `src/renderer/src/components/GoToFileModal.tsx:57`:
 `root.split('/').slice(0, 3).join('/')` only yields the real home when the
 workspace lives under `/Users/<name>`. The main process already knows the real
 home (`process.env.HOME`, used in `menu.ts:28`) — expose it via `windowInit` or
 IPC rather than reconstructing it renderer-side.
 
-### 6. External-change reload can clobber unsaved edits
+**Resolution:** `WindowInitData` now carries `homeDir`, populated by the preload
+from `process.env.HOME` (falling back to `USERPROFILE`). Go-to-File expands `~`
+using that real home instead of slicing the workspace path.
+
+### 6. External-change reload can clobber unsaved edits — WON'T FIX (by design)
 `src/renderer/src/documents.ts:149-180` — "external wins" applies even when the
-doc is `dirty`. A real external change to a file the user is mid-edit silently
-replaces their buffer (cursor preserved, edits gone) with no prompt. The 700ms
-autosave keeps the window small, but it's still unannounced data loss. Consider
-detecting the conflict and surfacing a notice, or keeping the dirty buffer.
+doc is `dirty`. Per the maintainer this is intended: external changes should
+always overwrite whatever is in the editor. Left as-is deliberately.
 
 ## Low / robustness
 

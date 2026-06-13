@@ -53,9 +53,8 @@ export function GoToFileModal(): React.JSX.Element {
     const home = '~'
     if (value.startsWith('/') || value.startsWith(`${home}/`) || value === home) {
       const root = useWorkspaceStore.getState().rootPath ?? ''
-      const expanded = value.startsWith(home)
-        ? value.replace(home, root.split('/').slice(0, 3).join('/'))
-        : value
+      const homeDir = window.api.windowInit.homeDir
+      const expanded = value.startsWith(home) ? homeDir + value.slice(home.length) : value
       if (expanded.startsWith(`${root}/`)) {
         // inside the workspace: match the relative path
         const rel = expanded.slice(root.length + 1)
@@ -93,6 +92,7 @@ export function GoToFileModal(): React.JSX.Element {
   // only), and results must reflect the complete list once it lands.
   const paths = useWorkspaceStore((s) => s.paths)
   const excludedPaths = useWorkspaceStore((s) => s.excludedPaths)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: excludedPaths is read indirectly via visiblePaths(); it must re-feed the worker when exclusions change
   useEffect(() => {
     workerRef.current?.postMessage({ type: 'set', paths: visiblePaths() })
     void runQuery(inputRef.current?.value ?? '')

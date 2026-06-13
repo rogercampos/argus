@@ -226,6 +226,10 @@ export function SearchModal(): React.JSX.Element {
       },
       state.replaceText
     )
+    if (result.error) {
+      setReplaceAllStatus(`Replace failed: ${result.error}`)
+      return
+    }
     setReplaceAllStatus(
       `Replaced ${result.replacements} occurrences in ${result.filesChanged} files`
     )
@@ -331,9 +335,15 @@ export function SearchModal(): React.JSX.Element {
               onOpen={() => openMatch(match)}
             />
           ))}
-          {s.modalResults.matches.length === 0 && s.modalPattern && !s.modalResults.running && (
-            <div className="px-3 py-4 text-[12px] text-fg-dim">No results</div>
+          {s.modalResults.error && (
+            <div className="px-3 py-4 font-mono text-[12px] text-error">{s.modalResults.error}</div>
           )}
+          {s.modalResults.matches.length === 0 &&
+            s.modalPattern &&
+            !s.modalResults.running &&
+            !s.modalResults.error && (
+              <div className="px-3 py-4 text-[12px] text-fg-dim">No results</div>
+            )}
         </div>
         <div className="w-1/2">
           <SearchPreview match={selectedMatch} />
@@ -343,11 +353,13 @@ export function SearchModal(): React.JSX.Element {
       <div className="flex shrink-0 items-center border-t border-edge px-3 py-1.5 text-[11px] text-fg-dim">
         <span>
           {replaceAllStatus ??
-            (s.modalResults.running
-              ? `Found ${s.modalResults.total} results so far…`
-              : s.modalResults.capped
-                ? `Showing first ${s.modalResults.total} — refine your search`
-                : `Found ${s.modalResults.total} results`)}
+            (s.modalResults.error
+              ? 'Search error'
+              : s.modalResults.running
+                ? `Found ${s.modalResults.total} results so far…`
+                : s.modalResults.capped
+                  ? `Showing first ${s.modalResults.total} — refine your search`
+                  : `Found ${s.modalResults.total} results`)}
         </span>
         <button
           type="button"

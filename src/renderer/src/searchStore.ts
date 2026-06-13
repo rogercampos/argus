@@ -23,6 +23,8 @@ export interface SearchResults {
   running: boolean
   total: number
   capped: boolean
+  /** ripgrep error (e.g. invalid regex), distinct from "no matches" */
+  error?: string
 }
 
 const emptyResults = (): SearchResults => ({
@@ -165,7 +167,8 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
             matches: [...current.matches, ...progress.matches],
             running: !progress.done,
             total: progress.total,
-            capped: progress.capped
+            capped: progress.capped,
+            error: progress.error
           }
         })
         return
@@ -180,7 +183,8 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
           matches: [...tab.results.matches, ...progress.matches],
           running: !progress.done,
           total: progress.total,
-          capped: progress.capped
+          capped: progress.capped,
+          error: progress.error
         }
       }
       set({ tabs })

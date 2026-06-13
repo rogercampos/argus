@@ -301,7 +301,10 @@ export function SearchPanel(): React.JSX.Element {
               </button>
             )
           )}
-          {rows.length === 0 && !tab.results.running && (
+          {tab.results.error && (
+            <div className="px-3 py-4 font-mono text-[12px] text-error">{tab.results.error}</div>
+          )}
+          {rows.length === 0 && !tab.results.running && !tab.results.error && (
             <div className="px-3 py-4 text-[12px] text-fg-dim">No results</div>
           )}
         </div>

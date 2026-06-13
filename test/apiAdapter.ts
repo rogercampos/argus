@@ -138,7 +138,7 @@ export function createTestApi(workspacePath: string): TestApi {
   const activeSearches = new Map<number, RunningSearch>()
 
   const api: ArgusApi = {
-    windowInit: { kind: 'workspace', workspacePath },
+    windowInit: { kind: 'workspace', workspacePath, homeDir: process.env.HOME ?? '' },
 
     // app / windows
     openFolderDialog: async () => {

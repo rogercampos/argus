@@ -21,11 +21,16 @@ function makeListener<T>(channel: string) {
 }
 
 function parseWindowInit(): WindowInitData {
+  const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? ''
   const workspaceArg = process.argv.find((a) => a.startsWith('--argus-workspace='))
   if (workspaceArg) {
-    return { kind: 'workspace', workspacePath: workspaceArg.slice('--argus-workspace='.length) }
+    return {
+      kind: 'workspace',
+      workspacePath: workspaceArg.slice('--argus-workspace='.length),
+      homeDir
+    }
   }
-  return { kind: 'welcome', workspacePath: null }
+  return { kind: 'welcome', workspacePath: null, homeDir }
 }
 
 const api: ArgusApi = {

@@ -44,8 +44,19 @@ export function truncateLine(
   }
 }
 
-export function buildRgArgs(options: SearchOptions): string[] {
+/** ripgrep's `-r` always treats `$` as a capture reference; in literal
+ * (non-regex) mode the user means a literal `$`, which rg escapes as `$$`. */
+export function escapeReplacement(replacement: string, regex: boolean): string {
+  return regex ? replacement : replacement.replace(/\$/g, '$$$$')
+}
+
+export function buildRgArgs(options: SearchOptions, replacement?: string): string[] {
   const args = ['--json', '--line-number', '--no-heading', '--hidden', '--glob', '!.git/**']
+  // `-r` makes ripgrep compute each replacement with the same engine that
+  // matched, so it stays consistent with the search (captures included)
+  if (replacement !== undefined) {
+    args.push('-r', escapeReplacement(replacement, options.regex))
+  }
   if (!options.caseSensitive) args.push('--ignore-case')
   if (options.wholeWord) args.push('--word-regexp')
   if (!options.regex) args.push('--fixed-strings')
@@ -66,11 +77,13 @@ export function runSearch(
   const child: ChildProcess = trackedSpawn(
     rgPath,
     buildRgArgs(options),
-    { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] },
+    { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] },
     { kind: 'search', label: `ripgrep: ${options.pattern.slice(0, 40)}` }
   )
 
   let buffer = ''
+  let stderr = ''
+  let error: string | null = null
   let pending: SearchMatch[] = []
   let total = 0
   let capped = false
@@ -83,7 +96,7 @@ export function runSearch(
 
   const flush = (isDone: boolean): void => {
     if (pending.length > 0 || isDone) {
-      onProgress({ matches: pending, done: isDone, total, capped })
+      onProgress({ matches: pending, done: isDone, total, capped, error: error ?? undefined })
       pending = []
     }
   }
@@ -146,8 +159,22 @@ export function runSearch(
     }
   })
 
-  child.on('close', finish)
-  child.on('error', finish)
+  child.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString('utf8')
+  })
+
+  // rg exit codes: 0 = matches, 1 = no matches, 2 = error (e.g. bad regex).
+  // Without this an invalid pattern is indistinguishable from "no results".
+  child.on('close', (code) => {
+    if (!capped && code !== null && code !== 0 && code !== 1) {
+      error = stderr.trim() || `ripgrep exited with code ${code}`
+    }
+    finish()
+  })
+  child.on('error', (err) => {
+    error = String(err)
+    finish()
+  })
 
   return {
     // Discard, don't flush: a cancelled search's pending matches would land
@@ -165,78 +192,144 @@ export function runSearch(
   }
 }
 
+interface ReplaceSpan {
+  /** absolute byte offset of the matched range within the file */
+  pos: number
+  /** byte length of the matched range */
+  length: number
+  /** ripgrep-computed replacement text (capture refs already expanded) */
+  text: string
+}
+
 /**
- * Global replace-all (spec 03): collect matches per file with ripgrep, then
- * rewrite each file line-wise. Open buffers pick the change up through the
- * file watcher (external-changes-win).
+ * Collect, per file, the exact byte ranges to rewrite and the replacement
+ * ripgrep computed for each. Using ripgrep's own `-r` engine keeps the match
+ * set and capture-group expansion identical to the search — re-deriving them
+ * with a JS RegExp would diverge from Rust regex (and could throw on patterns
+ * valid only in ripgrep). Offsets are absolute bytes, so multi-byte UTF-8 is
+ * handled correctly.
+ */
+function collectReplaceSpans(
+  root: string,
+  options: SearchOptions,
+  replacement: string
+): Promise<{ byFile: Map<string, ReplaceSpan[]>; error: string | null }> {
+  return new Promise((resolve) => {
+    const child = trackedSpawn(
+      rgPath,
+      buildRgArgs(options, replacement),
+      { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] },
+      { kind: 'search', label: `ripgrep replace: ${options.pattern.slice(0, 40)}` }
+    )
+    const byFile = new Map<string, ReplaceSpan[]>()
+    let buffer = ''
+    let stderr = ''
+
+    const handleLine = (line: string): void => {
+      if (!line) return
+      let event: {
+        type: string
+        data?: {
+          path?: { text?: string }
+          absolute_offset?: number
+          submatches?: { start: number; end: number; replacement?: { text?: string } }[]
+        }
+      }
+      try {
+        event = JSON.parse(line)
+      } catch {
+        return
+      }
+      if (event.type !== 'match' || !event.data) return
+      const path = event.data.path?.text
+      const base = event.data.absolute_offset
+      if (!path || base === undefined) return
+      const rel = path.replace(/^\.\//, '')
+      const spans = byFile.get(rel) ?? []
+      for (const sub of event.data.submatches ?? []) {
+        spans.push({
+          pos: base + sub.start,
+          length: sub.end - sub.start,
+          text: sub.replacement?.text ?? ''
+        })
+      }
+      byFile.set(rel, spans)
+    }
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString('utf8')
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) handleLine(line)
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8')
+    })
+    const finish = (code: number | null, spawnError?: string): void => {
+      if (buffer) handleLine(buffer)
+      const error = spawnError
+        ? spawnError
+        : code !== null && code !== 0 && code !== 1
+          ? stderr.trim() || `ripgrep exited with code ${code}`
+          : null
+      resolve({ byFile, error })
+    }
+    child.on('close', (code) => finish(code))
+    child.on('error', (err) => finish(null, String(err)))
+  })
+}
+
+/**
+ * Global replace-all (spec 03): ripgrep computes the matches and replacements
+ * (same engine as the search), then each file is rewritten by byte-splicing
+ * those ranges. Open buffers pick the change up through the file watcher
+ * (external-changes-win).
  */
 export async function replaceAll(
   root: string,
   options: SearchOptions,
   replacement: string,
   onProgress?: (done: number, totalFiles: number, replaced: number) => void
-): Promise<{ filesChanged: number; replacements: number }> {
-  // collect all matches (no cap)
-  const byFile = new Map<string, { line: number; submatches: RgSubmatch[] }[]>()
-  await new Promise<void>((resolve) => {
-    const search = runSearch(
-      root,
-      { ...options, maxResults: Number.MAX_SAFE_INTEGER },
-      (progress) => {
-        for (const match of progress.matches) {
-          const list = byFile.get(match.path) ?? []
-          list.push({ line: match.line, submatches: match.submatches })
-          byFile.set(match.path, list)
-        }
-        if (progress.done) resolve()
-      }
-    )
-    void search.done
-  })
+): Promise<{ filesChanged: number; replacements: number; error?: string }> {
+  const { byFile, error } = await collectReplaceSpans(root, options, replacement)
+  if (error) return { filesChanged: 0, replacements: 0, error }
 
   let filesChanged = 0
   let replacements = 0
   let processed = 0
-  const flags = options.caseSensitive ? 'g' : 'gi'
-  const escaped = options.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const source = options.regex ? options.pattern : options.wholeWord ? `\\b${escaped}\\b` : escaped
-  const matcher = new RegExp(source, flags)
-  // capture-group references ($1…) only apply in regex mode
-  const replaceWith = options.regex ? replacement : (): string => replacement
+  const totalFiles = byFile.size
 
-  for (const [path, fileMatches] of byFile) {
+  for (const [path, spans] of byFile) {
     const abs = join(root, path)
-    let content: string
+    let buffer: Buffer
     try {
-      content = await fs.readFile(abs, 'utf8')
+      buffer = await fs.readFile(abs)
     } catch {
+      processed += 1
+      onProgress?.(processed, totalFiles, replacements)
       continue
     }
-    const lines = content.split('\n')
-    let changed = false
-    const lineNumbers = new Set(fileMatches.map((m) => m.line))
-    for (const lineNumber of lineNumbers) {
-      const index = lineNumber - 1
-      if (index < 0 || index >= lines.length) continue
-      const original = lines[index]
-      const count = (original.match(matcher) ?? []).length
-      if (count === 0) continue
-      const updated =
-        typeof replaceWith === 'string'
-          ? original.replace(matcher, replaceWith)
-          : original.replace(matcher, replaceWith)
-      if (updated !== original) {
-        replacements += count
-        lines[index] = updated
-        changed = true
-      }
+    spans.sort((a, b) => a.pos - b.pos)
+    const out: Buffer[] = []
+    let cursor = 0
+    let fileReplacements = 0
+    for (const span of spans) {
+      // skip anything that would overlap a prior splice or read past EOF
+      // (the file may have changed since ripgrep scanned it)
+      if (span.pos < cursor || span.pos + span.length > buffer.length) continue
+      out.push(buffer.subarray(cursor, span.pos))
+      out.push(Buffer.from(span.text, 'utf8'))
+      cursor = span.pos + span.length
+      fileReplacements += 1
     }
-    if (changed) {
-      await fs.writeFile(abs, lines.join('\n'), 'utf8')
+    if (fileReplacements > 0) {
+      out.push(buffer.subarray(cursor))
+      await fs.writeFile(abs, Buffer.concat(out))
       filesChanged += 1
+      replacements += fileReplacements
     }
     processed += 1
-    onProgress?.(processed, byFile.size, replacements)
+    onProgress?.(processed, totalFiles, replacements)
   }
 
   return { filesChanged, replacements }

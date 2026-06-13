@@ -153,4 +153,63 @@ describe('global search backend (spec 03)', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it('replace-all treats $ literally in non-regex mode', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'argus-replace-lit-'))
+    try {
+      writeFileSync(join(dir, 'a.txt'), 'set price here\n')
+      const result = await replaceAll(dir, { ...baseOptions, pattern: 'price' }, '$1cost')
+      expect(result.replacements).toBe(1)
+      expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('set $1cost here\n')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('replace-all splices correctly across multi-byte UTF-8', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'argus-replace-utf8-'))
+    try {
+      // "é" is 2 bytes; the replacement must land on the right byte offset
+      writeFileSync(join(dir, 'a.txt'), 'café foo and foo\nplain foo\n')
+      const result = await replaceAll(dir, { ...baseOptions, pattern: 'foo' }, 'BAR')
+      expect(result.replacements).toBe(3)
+      expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('café BAR and BAR\nplain BAR\n')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('replace-all preserves a missing trailing newline', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'argus-replace-nonl-'))
+    try {
+      writeFileSync(join(dir, 'a.txt'), 'foo bar') // no trailing \n
+      await replaceAll(dir, { ...baseOptions, pattern: 'foo' }, 'qux')
+      expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('qux bar')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('replace-all reports a ripgrep error instead of silently doing nothing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'argus-replace-err-'))
+    try {
+      writeFileSync(join(dir, 'a.txt'), 'foo\n')
+      // an unbalanced group is invalid regex — ripgrep exits with code 2
+      const result = await replaceAll(dir, { ...baseOptions, pattern: '(', regex: true }, 'x')
+      expect(result.error).toBeTruthy()
+      expect(result.filesChanged).toBe(0)
+      expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('foo\n')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('search reports an invalid regex as an error, not "no results"', async () => {
+    const error = await new Promise<string | undefined>((resolve) => {
+      runSearch(root, { ...baseOptions, pattern: '(', regex: true }, (progress) => {
+        if (progress.done) resolve(progress.error)
+      })
+    })
+    expect(error).toBeTruthy()
+  })
 })
