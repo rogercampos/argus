@@ -83,8 +83,10 @@ export function rankPaths(
 ): { items: RankedItem[]; total: number } {
   if (query.length === 0) {
     const recentSet = new Set(recents)
-    const inRepo = recents.filter((p) => paths.includes(p))
-    const rest = [...paths].filter((p) => !recentSet.has(p)).sort()
+    const pathSet = new Set(paths)
+    // Set membership instead of paths.includes() (O(recents × paths) over ~100k)
+    const inRepo = recents.filter((p) => pathSet.has(p))
+    const rest = paths.filter((p) => !recentSet.has(p)).sort()
     const ordered = [...inRepo, ...rest]
     return {
       items: ordered.slice(0, limit).map((path) => ({ path, score: 0, indices: [] })),

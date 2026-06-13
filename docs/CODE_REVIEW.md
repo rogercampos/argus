@@ -184,9 +184,10 @@ All items below were addressed on 2026-06-13 (one commit each).
   `parseSemgrepResults(stdout)`; the success and exit-code-1 paths now share it
   and parse once. The global `this.queue` serialization is left as-is — it's the
   intended "one scan at a time" behavior (resource control), not a bug.
-- **fuzzy empty-query cost** (`fuzzy.ts:86-87`): `recents.filter(p =>
-  paths.includes(p))` is O(recents × paths); use `new Set(paths)`. The full
-  `[...paths].sort()` on every empty query (100k items) could be precomputed.
+- ✅ **fuzzy empty-query cost** (`fuzzy.ts:86-87`): the `recents.filter(p =>
+  paths.includes(p))` (O(recents × paths) over ~100k) now uses a `Set`. The
+  `paths.sort()` was left as-is — empty-query is on modal-open, not per
+  keystroke, so caching it would add invalidation complexity for little gain.
 - **`binaryOnPath` uses `F_OK`** (`servers.ts:63`): a non-executable file on
   PATH would be selected; use `fs.constants.X_OK`.
 - **Per-file view-state files leak** (`state.ts:126`):
