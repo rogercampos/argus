@@ -115,25 +115,44 @@ always overwrite whatever is in the editor. Left as-is deliberately.
 
 ## Low / robustness
 
-### 7. Session state may not flush on quit
+> Items #7, #8, and #9 were **fixed on 2026-06-13**. #10 was partially addressed
+> (the two cheap, high-value parts); the remaining parts are intentional. See
+> notes under each.
+
+### 7. Session state may not flush on quit ✅ FIXED
 `src/main/index.ts:59-62`: `before-quit` does `void persistAppState()` (async)
 without `preventDefault()`/await, so the app can exit before the write lands.
 Debounced saves cover most cases, but a change in the final ~2s before quit can
 be lost. Persist synchronously here, or use `preventDefault` → await →
 `app.exit()`.
 
-### 8. Modal search has no generation token → stale rows during fast typing
+**Resolution:** `before-quit` now `preventDefault()`s on the first pass, awaits
+`persistAppState()`, then re-issues `app.quit()` (a guarded flag prevents a
+loop). The second pass runs normally, so window-close cleanup (LSP servers,
+watchers, ripgrep) still happens — unlike `app.exit()`, which would skip it.
+
+### 8. Modal search has no generation token → stale rows during fast typing ✅ FIXED
 `src/renderer/src/searchStore.ts:160-172` keys all modal results on
 `MODAL_SEARCH_ID = 0`. In-flight `search:progress` events from a superseded
 query get appended to the new (reset) result set. Add a per-query epoch and drop
 non-matching progress.
 
-### 9. Git monitor debounce can starve under a continuous event stream
+**Resolution:** each modal query now takes a fresh, unique id counting down from
+0 (`-1, -2, …`), tracked in `modalSearchId`; tab ids stay `≥ 1`, so `searchId <=
+0` still identifies modal progress. The progress handler drops any modal batch
+whose id ≠ the current `modalSearchId`, and `openModal`/`runModalSearch` cancel
+the prior id and bump to a new one. Covered by a new `searchStore.test.ts` case.
+
+### 9. Git monitor debounce can starve under a continuous event stream ✅ FIXED
 `src/main/git.ts:134-135`: every `noteChanges` batch resets the 500ms timer. A
 sustained event stream (a build, a large checkout) keeps resetting it and the
 flush never fires until the storm ends. Add a max-wait cap.
 
-### 10. Arbitrary-path file IPC + weakened isolation
+**Resolution:** `noteChanges` now tracks when the oldest un-flushed change
+arrived and caps the wait via `debounceWait()` (pure, unit-tested) at a 2s
+deadline — a continuous stream still flushes at least every ~2s instead of never.
+
+### 10. Arbitrary-path file IPC + weakened isolation ◑ PARTIALLY FIXED
 `file:read-abs` / `file:write-abs` (`ipc.ts:183-185`, `repo.ts:163,179`) accept
 any absolute path with no containment check; `repo:*`/`file:*` trust a `root`
 arg from the renderer instead of `eventWorkspace(event)`; `electronAPI` is
@@ -141,6 +160,18 @@ exposed wholesale (`preload/index.ts:108`); windows run with `sandbox: false`
 (`windows.ts:96`). Threat model is limited (renderer never executes repo
 content), but deriving `root` from the window and narrowing the exposed
 `electron` object would be cheap defense-in-depth.
+
+**Resolution (partial):**
+- `repo:list-files` / `repo:list-top-level` / `repo:git-status` / `file:read` /
+  `file:write` now derive the root from `eventWorkspace(event)` and ignore the
+  renderer-supplied path, so a window can only read/list inside the folder it
+  owns.
+- The broad `electronAPI` is no longer bridged to the renderer (it was unused);
+  only the typed `api` is exposed, and the `window.electron` global was removed.
+- Left as designed: `file:read-abs`/`file:write-abs` still take absolute paths —
+  that is the mechanism for opening external files (go-to-definition into gems /
+  node_modules outside the repo). `sandbox: false` is required by the preload's
+  Node usage and is unchanged.
 
 ## Cleanups / minor
 

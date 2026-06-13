@@ -72,6 +72,17 @@ export async function readBranchAndState(root: string): Promise<Omit<GitState, '
 /** Above this many pending paths a full rescan is cheaper than a pathspec scan. */
 const MAX_TARGETED_PATHS = 500
 
+/** Coalesce bursts of watcher events before scanning... */
+const DEBOUNCE_MS = 500
+/** ...but never wait longer than this, so a continuous event stream (a build,
+ * a big checkout) can't keep resetting the timer and starve the flush. */
+const MAX_DEBOUNCE_WAIT_MS = 2000
+
+/** How long to wait before flushing, given when the first pending change landed. */
+export function debounceWait(firstPendingAt: number, now: number): number {
+  return Math.min(DEBOUNCE_MS, Math.max(0, MAX_DEBOUNCE_WAIT_MS - (now - firstPendingAt)))
+}
+
 export class GitMonitor {
   private windowId: number
   private statuses = new Map<string, GitStatusEntry['status']>()
@@ -79,6 +90,8 @@ export class GitMonitor {
   private pendingPaths = new Set<string>()
   private fullRescanPending = false
   private timer: ReturnType<typeof setTimeout> | null = null
+  /** when the oldest un-flushed change arrived, for the max-wait cap */
+  private firstPendingAt: number | null = null
   private isRepo = false
   private disposed = false
   private scanning = false
@@ -131,8 +144,16 @@ export class GitMonitor {
         this.pendingPaths.add(path)
       }
     }
+    const now = Date.now()
+    if (this.firstPendingAt === null) this.firstPendingAt = now
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.flush(), 500)
+    this.timer = setTimeout(
+      () => {
+        this.firstPendingAt = null
+        void this.flush()
+      },
+      debounceWait(this.firstPendingAt, now)
+    )
   }
 
   /**

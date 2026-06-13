@@ -1,4 +1,3 @@
-import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ArgusApi,
@@ -108,16 +107,15 @@ const api: ArgusApi = {
   writeFileAbsolute: (absPath, content) => ipcRenderer.invoke('file:write-abs', absPath, content)
 }
 
+// Only the typed `api` is exposed — the full electron/ipcRenderer surface is
+// deliberately not bridged into the renderer (it has no use for it).
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-expect-error (define in dts)
-  window.electron = electronAPI
   // @ts-expect-error (define in dts)
   window.api = api
 }

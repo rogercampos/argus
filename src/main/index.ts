@@ -56,9 +56,17 @@ if (!gotLock) {
     })
   })
 
-  app.on('before-quit', () => {
+  // persistAppState writes asynchronously; hold the quit until it lands once,
+  // otherwise the last window move/resize/open can be lost from the session.
+  let finalPersistDone = false
+  app.on('before-quit', (event) => {
     markQuitting()
-    void persistAppState()
+    if (finalPersistDone) return
+    event.preventDefault()
+    void persistAppState().finally(() => {
+      finalPersistDone = true
+      app.quit() // re-quit; this pass runs normally (windows close, children die)
+    })
   })
 
   app.on('window-all-closed', () => {

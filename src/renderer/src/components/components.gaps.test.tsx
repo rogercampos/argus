@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createTestApi, installTestApi, type TestApi } from '../../../../test/apiAdapter'
 import { type FixtureRepo, makeFixtureRepo, sampleProjectFiles } from '../../../../test/fixtures'
 import { useProcStore } from '../procStore'
-import { MODAL_SEARCH_ID, useSearchStore } from '../searchStore'
+import { useSearchStore } from '../searchStore'
 import { activeTabPath, useWorkspaceStore } from '../store'
 import { useTasksStore } from '../tasksStore'
 import { SearchModal } from './SearchModal'
@@ -157,7 +157,7 @@ describe('SearchModal footer and capped results', () => {
     useSearchStore.getState().openModal(false)
     useSearchStore.setState({ modalPattern: 'x' })
     render(<SearchModal />)
-    testApi.emitSearchProgress(MODAL_SEARCH_ID, {
+    testApi.emitSearchProgress(useSearchStore.getState().modalSearchId, {
       matches: [],
       done: true,
       total: 100,

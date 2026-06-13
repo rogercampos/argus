@@ -83,12 +83,16 @@ export function registerIpcHandlers(): void {
     await startWatching(window, root)
   })
 
-  // repo
-  ipcMain.handle('repo:list-files', (_event, root: string) => listFiles(root))
-  ipcMain.handle('repo:list-top-level', (_event, root: string) => listTopLevel(root))
-  ipcMain.handle('repo:git-status', (_event, root: string) => gitStatus(root))
-  ipcMain.handle('file:read', (_event, root: string, relPath: string) => readFile(root, relPath))
-  ipcMain.handle('file:write', async (event, root: string, relPath: string, content: string) => {
+  // repo — the root is the window's own workspace, never a renderer-supplied
+  // path, so a window can only ever read/list inside the folder it owns
+  ipcMain.handle('repo:list-files', (event) => listFiles(eventWorkspace(event)))
+  ipcMain.handle('repo:list-top-level', (event) => listTopLevel(eventWorkspace(event)))
+  ipcMain.handle('repo:git-status', (event) => gitStatus(eventWorkspace(event)))
+  ipcMain.handle('file:read', (event, _root: string, relPath: string) =>
+    readFile(eventWorkspace(event), relPath)
+  )
+  ipcMain.handle('file:write', async (event, _root: string, relPath: string, content: string) => {
+    const root = eventWorkspace(event)
     const result = await writeFile(root, relPath, content)
     // saved files re-scan in semgrep (spec 12)
     if (result.ok) {

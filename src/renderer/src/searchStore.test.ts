@@ -154,4 +154,32 @@ describe('search store (integration)', () => {
     expect(useSearchStore.getState().modalResults).toEqual(before.modalResults)
     expect(useSearchStore.getState().tabs).toEqual(before.tabs)
   })
+
+  it('drops modal progress from a superseded query but keeps the current one', async () => {
+    useSearchStore.getState().openModal(false)
+    useSearchStore.getState().runModalSearch(NEEDLE)
+    await settledModal()
+    const currentId = useSearchStore.getState().modalSearchId
+    const before = useSearchStore.getState().modalResults
+
+    // a different modal id (older query, still in the <=0 modal space) is stale
+    testApi.emitSearchProgress(currentId + 1, {
+      matches: [{ path: 'stale.ts', line: 1, text: 'stale', submatches: [], origSubmatches: [] }],
+      done: false,
+      total: 1,
+      capped: false
+    })
+    expect(useSearchStore.getState().modalResults).toEqual(before)
+
+    // progress for the current id is still accepted
+    testApi.emitSearchProgress(currentId, {
+      matches: [{ path: 'fresh.ts', line: 1, text: 'fresh', submatches: [], origSubmatches: [] }],
+      done: true,
+      total: 3,
+      capped: false
+    })
+    expect(useSearchStore.getState().modalResults.matches.some((m) => m.path === 'fresh.ts')).toBe(
+      true
+    )
+  })
 })

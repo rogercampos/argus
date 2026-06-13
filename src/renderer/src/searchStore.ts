@@ -8,6 +8,9 @@ import { activeView, mergePersisted, useWorkspaceStore } from './store'
  * searchId.
  */
 
+/** Initial modal search id. Each modal query then uses a fresh negative id
+ * (see modalSeq) so progress from a superseded query can be dropped; tab ids
+ * are always >= 1, so `searchId <= 0` reliably identifies modal progress. */
 export const MODAL_SEARCH_ID = 0
 export const MODAL_MAX_RESULTS = 100
 export const TAB_MAX_RESULTS = 1000
@@ -54,6 +57,8 @@ interface SearchStore {
   modalPattern: string
   modalScope: string | null
   modalResults: SearchResults
+  /** id of the in-flight modal search; stale progress (≠ this) is ignored */
+  modalSearchId: number
   modalSelected: number
   replaceText: string
   lastPattern: string
@@ -78,6 +83,8 @@ interface SearchStore {
 }
 
 let nextTabId = 1
+/** Modal search ids count down from 0 (-1, -2, …), distinct from tab ids (≥1). */
+let modalSeq = MODAL_SEARCH_ID
 
 function buildOptions(
   pattern: string,
@@ -130,6 +137,7 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   modalPattern: '',
   modalScope: null,
   modalResults: emptyResults(),
+  modalSearchId: MODAL_SEARCH_ID,
   modalSelected: 0,
   replaceText: '',
   lastPattern: '',
@@ -160,7 +168,9 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
     }
 
     window.api.onSearchProgress((searchId, progress) => {
-      if (searchId === MODAL_SEARCH_ID) {
+      // modal searches use ids <= 0; drop progress from a superseded query
+      if (searchId <= 0) {
+        if (searchId !== get().modalSearchId) return
         const current = get().modalResults
         set({
           modalResults: {
@@ -193,6 +203,8 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 
   openModal: (replaceMode) => {
     const prefill = selectionPrefill() ?? get().lastPattern
+    // stop any prior modal search and bump the id so its late progress is dropped
+    void window.api.cancelSearch(get().modalSearchId)
     // Scope: only preset when invoked from the file tree (spec 03); default All
     set({
       modalOpen: true,
@@ -200,13 +212,14 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       modalPattern: prefill,
       modalScope: null,
       modalSelected: 0,
-      modalResults: emptyResults()
+      modalResults: emptyResults(),
+      modalSearchId: --modalSeq
     })
     if (prefill) get().runModalSearch(prefill)
   },
 
   closeModal: () => {
-    void window.api.cancelSearch(MODAL_SEARCH_ID)
+    void window.api.cancelSearch(get().modalSearchId)
     set({ modalOpen: false, lastPattern: get().modalPattern })
     persistTabs()
   },
@@ -225,14 +238,21 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   },
 
   runModalSearch: (pattern) => {
-    set({ modalPattern: pattern, modalResults: { ...emptyResults(), running: true } })
+    // supersede the previous modal search: cancel it and take a fresh id so any
+    // of its in-flight progress is ignored instead of polluting these results
+    void window.api.cancelSearch(get().modalSearchId)
+    const searchId = --modalSeq
+    set({
+      modalSearchId: searchId,
+      modalPattern: pattern,
+      modalResults: { ...emptyResults(), running: true }
+    })
     if (!pattern) {
-      void window.api.cancelSearch(MODAL_SEARCH_ID)
       set({ modalResults: emptyResults() })
       return
     }
     void window.api.startSearch(
-      MODAL_SEARCH_ID,
+      searchId,
       buildOptions(pattern, get().flags, get().modalScope, MODAL_MAX_RESULTS)
     )
   },

@@ -6,7 +6,7 @@ import type { BrowserWindow } from 'electron'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { StubBrowserWindow } from '../../test/electronStub'
 import type { GitState, GitStatusDiff } from '../shared/types'
-import { GitMonitor, parsePorcelain, readBranchAndState } from './git'
+import { debounceWait, GitMonitor, parsePorcelain, readBranchAndState } from './git'
 
 function git(root: string, ...args: string[]): void {
   execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' })
@@ -208,6 +208,16 @@ describe('GitMonitor (spec 09)', () => {
       monitor.dispose()
       rmSync(root, { recursive: true, force: true })
     }
+  })
+
+  it('caps the debounce so a continuous event stream cannot starve the flush', () => {
+    const t0 = 1_000_000
+    // a fresh burst waits the full debounce
+    expect(debounceWait(t0, t0)).toBe(500)
+    // partway through, the remaining wait shrinks toward the max-wait deadline
+    expect(debounceWait(t0, t0 + 1700)).toBe(300)
+    // past the 2s cap, flush immediately instead of resetting again
+    expect(debounceWait(t0, t0 + 2500)).toBe(0)
   })
 
   it('parses deleted and ignored porcelain letters', () => {
