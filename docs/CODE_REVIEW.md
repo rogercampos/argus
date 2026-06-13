@@ -206,7 +206,8 @@ All items below were addressed on 2026-06-13 (one commit each).
   The `updateListener` (`noteViewUpdate`) writes `doc.state` on every view
   update — including programmatic dispatches and external reloads — so the
   interval could never observe a real divergence.
-- **`projectForFile` / `ancestorWithKind` prefix checks** (`projects.ts:57,109`):
-  `dir.startsWith(workspaceRoot)` matches `/foo/bar-baz` against `/foo/bar`.
-  Harmless at current call sites but latent; compare against `workspaceRoot +
-  sep`.
+- ✅ **`projectForFile` / `ancestorWithKind` prefix checks** (`projects.ts:57,109`):
+  replaced the raw `dir.startsWith(workspaceRoot)` with a segment-aware
+  `isWithin(root, dir)` (`dir === root || dir.startsWith(root + sep)`), so a
+  sibling like `/foo/bar-baz` is no longer treated as inside `/foo/bar`.
+  Regression test added in `lsp.test.ts`.

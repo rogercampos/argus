@@ -1,6 +1,12 @@
 import { promises as fs } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import type { ProjectInfo } from '../../shared/types'
+
+/** True when `dir` is `root` itself or a descendant — a path-segment-aware
+ * check, so a sibling like `/foo/bar-baz` is NOT considered inside `/foo/bar`. */
+function isWithin(root: string, dir: string): boolean {
+  return dir === root || dir.startsWith(root + sep)
+}
 
 /**
  * Project detection (spec 01/08): walk UP from an opened file toward the
@@ -54,7 +60,7 @@ export class ProjectRegistry {
   async projectForFile(absFilePath: string): Promise<ProjectInfo> {
     let dir = dirname(absFilePath)
     // ensure we stay inside the workspace
-    if (!dir.startsWith(this.workspaceRoot)) dir = this.workspaceRoot
+    if (!isWithin(this.workspaceRoot, dir)) dir = this.workspaceRoot
 
     let found: string | null = null
     let probe = dir
@@ -106,7 +112,7 @@ export class ProjectRegistry {
   async ancestorWithKind(info: ProjectInfo, kind: string): Promise<ProjectInfo> {
     let best = info
     let probe = dirname(info.root)
-    while (probe.startsWith(this.workspaceRoot) && probe !== dirname(this.workspaceRoot)) {
+    while (isWithin(this.workspaceRoot, probe) && probe !== dirname(this.workspaceRoot)) {
       const candidate = this.projects.get(probe)
       if (candidate?.kinds.includes(kind as ProjectInfo['kinds'][number])) best = candidate
       if (probe === this.workspaceRoot) break

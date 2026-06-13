@@ -46,6 +46,21 @@ describe('project detection (spec 01/08)', () => {
     expect(engine.relRoot).toBe('engines/billing')
   })
 
+  it('clamps a file in a sibling dir sharing a name prefix to the workspace root', async () => {
+    // a sibling like `<root>-sandbox` must not be treated as inside `<root>`
+    const sibling = `${root}-sandbox`
+    mkdirSync(sibling, { recursive: true })
+    writeFileSync(join(sibling, 'Gemfile'), '')
+    writeFileSync(join(sibling, 'stray.rb'), '')
+    try {
+      const registry = new ProjectRegistry(root)
+      const project = await registry.projectForFile(join(sibling, 'stray.rb'))
+      expect(project.root).toBe(root) // clamped, not the sibling's own Gemfile
+    } finally {
+      rmSync(sibling, { recursive: true, force: true })
+    }
+  })
+
   it('single-instance servers use the ancestor project (spec 08)', async () => {
     const registry = new ProjectRegistry(root)
     // detect the root first (as would happen when opening a root file)
