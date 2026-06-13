@@ -98,22 +98,6 @@ export function EditorPane(): React.JSX.Element {
     }
   }, [activePath, epoch])
 
-  // Keep doc.state authoritative when the view updates it
-  useEffect(() => {
-    const view = viewRef.current
-    if (!view) return undefined
-    const interval = setInterval(() => {
-      const path = shownPathRef.current
-      if (!path) return
-      const doc = documents.get(path)
-      if (doc && view.state !== doc.state) {
-        // noteViewUpdate keeps doc.state in sync; this is a safety net only
-        doc.state = view.state
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <div className="flex h-full min-w-0 flex-col">
       <EditorTabs />

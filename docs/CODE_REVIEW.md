@@ -202,9 +202,10 @@ All items below were addressed on 2026-06-13 (one commit each).
 - ✅ **Side-effect during render** (`Sidebar.tsx:193`): the star set is now
   derived with `useMemo` and published to `starredRef` inside the sync effect
   (before `syncModelPaths`), instead of mutating the module ref during render.
-- **EditorPane 5s polling safety-net** (`EditorPane.tsx:102-115`): likely dead
-  code since `noteViewUpdate` keeps `doc.state` authoritative; drop it or find
-  the desync it papers over.
+- ✅ **EditorPane 5s polling safety-net** (`EditorPane.tsx:102-115`): removed.
+  The `updateListener` (`noteViewUpdate`) writes `doc.state` on every view
+  update — including programmatic dispatches and external reloads — so the
+  interval could never observe a real divergence.
 - **`projectForFile` / `ancestorWithKind` prefix checks** (`projects.ts:57,109`):
   `dir.startsWith(workspaceRoot)` matches `/foo/bar-baz` against `/foo/bar`.
   Harmless at current call sites but latent; compare against `workspaceRoot +
