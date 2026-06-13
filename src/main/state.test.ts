@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -10,6 +10,7 @@ import {
   loadFileViewState,
   loadRecentWorkspaces,
   loadWorkspaceState,
+  pruneFileViewStates,
   removeRecentWorkspace,
   saveAppState,
   saveFileViewState,
@@ -98,6 +99,19 @@ describe('state persistence', () => {
       scrollTop: 100
     })
     expect(await loadFileViewState(wsA, 'src/other.ts')).toBeNull()
+  })
+
+  it('caps per-file view states so they cannot grow without bound', async () => {
+    const ws = join(dir, 'workspace-prune')
+    mkdirSync(ws)
+    for (let i = 0; i < 6; i++) {
+      await saveFileViewState(ws, `f${i}.ts`, { cursorOffset: i, scrollTop: 0 })
+    }
+    const filesDir = join(dir, 'state', 'workspaces', workspaceHash(ws), 'files')
+    expect(readdirSync(filesDir)).toHaveLength(6) // under the default cap
+
+    await pruneFileViewStates(ws, 3)
+    expect(readdirSync(filesDir)).toHaveLength(3) // oldest dropped to the cap
   })
 
   it('workspaceHash is stable and path-distinct', () => {

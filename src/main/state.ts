@@ -123,9 +123,44 @@ interface FileViewState {
   scrollTop: number
 }
 
+/** Cap on per-file view-state files kept per workspace; the hash is one-way so
+ * orphans from deleted/renamed files can't be matched back — bound them by count. */
+const MAX_FILE_VIEW_STATES = 500
+
+function fileStateDir(workspacePath: string): string {
+  return join(stateDir(), 'workspaces', workspaceHash(workspacePath), 'files')
+}
+
 function fileStateFile(workspacePath: string, relPath: string): string {
   const fileHash = createHash('sha256').update(relPath).digest('hex').slice(0, 32)
-  return join(stateDir(), 'workspaces', workspaceHash(workspacePath), 'files', `${fileHash}.json`)
+  return join(fileStateDir(workspacePath), `${fileHash}.json`)
+}
+
+/** Drop the oldest per-file view-state files beyond `cap` (by mtime), so they
+ * don't accumulate forever as files are deleted/renamed across sessions. */
+export async function pruneFileViewStates(
+  workspacePath: string,
+  cap = MAX_FILE_VIEW_STATES
+): Promise<void> {
+  const dir = fileStateDir(workspacePath)
+  let names: string[]
+  try {
+    names = await fs.readdir(dir)
+  } catch {
+    return // no per-file states yet
+  }
+  if (names.length <= cap) return
+  const stats = await Promise.all(
+    names.map(async (name) => {
+      try {
+        return { name, mtimeMs: (await fs.stat(join(dir, name))).mtimeMs }
+      } catch {
+        return { name, mtimeMs: 0 }
+      }
+    })
+  )
+  stats.sort((a, b) => b.mtimeMs - a.mtimeMs) // newest first
+  await Promise.all(stats.slice(cap).map((s) => fs.rm(join(dir, s.name)).catch(() => {})))
 }
 
 export async function loadFileViewState(
@@ -141,4 +176,5 @@ export async function saveFileViewState(
   state: FileViewState
 ): Promise<void> {
   await writeJsonAtomic(fileStateFile(workspacePath, relPath), state)
+  await pruneFileViewStates(workspacePath)
 }

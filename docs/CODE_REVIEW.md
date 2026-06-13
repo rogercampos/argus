@@ -191,9 +191,10 @@ All items below were addressed on 2026-06-13 (one commit each).
 - ✅ **`binaryOnPath` uses `F_OK`** (`servers.ts:63`): now checks `constants.X_OK`,
   so a non-executable file of the same name on PATH is no longer picked as the
   server binary. Tests updated to create executable fakes + a non-exec case.
-- **Per-file view-state files leak** (`state.ts:126`):
-  `workspaces/<hash>/files/<filehash>.json` are never GC'd when the repo file is
-  deleted.
+- ✅ **Per-file view-state files leak** (`state.ts:126`): added
+  `pruneFileViewStates(workspacePath, cap=500)` (oldest-by-mtime dropped),
+  enforced after every `saveFileViewState`. The hash is one-way so orphans can't
+  be matched back to deleted files — bounding by count is the practical fix.
 - **`window-all-closed` always quits** (`index.ts:64`): non-standard on macOS;
   makes the `activate` handler (`index.ts:53`) unreachable. Confirm intent.
 - **Side-effect during render** (`Sidebar.tsx:193`): `starredRef.current = new
