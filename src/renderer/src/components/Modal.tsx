@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { SectionLabel } from './ui/SectionLabel'
+import { TextInput } from './ui/TextInput'
 
 /**
  * Shared floating modal (spec 05): centered slightly above middle, exclusive,
@@ -99,11 +101,29 @@ export function Modal({
         ref={boxRef}
         role="dialog"
         style={{ width: size.width, height: size.height }}
-        className="flex max-h-[80vh] max-w-[95vw] cursor-default flex-col overflow-hidden rounded-md border border-edge bg-secondary shadow-[0_8px_30px_rgba(0,0,0,.4)]"
+        className="flex max-h-[80vh] max-w-[95vw] cursor-default flex-col overflow-hidden rounded-md border border-edge bg-secondary shadow-popover"
         onPointerDown={onPointerDown}
       >
         {children}
       </div>
+    </div>
+  )
+}
+
+/** Bordered uppercase header for list/report modals (Projects, Slow Ops…). */
+export function ModalHeader({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return <SectionLabel className="shrink-0 border-b border-edge px-4 py-2">{children}</SectionLabel>
+}
+
+/** Top search field for filter modals — padded (not margined) so the modal's
+ * flex column spaces it with the list below without margin-on-flex-child. */
+export function ModalSearchInput(
+  props: React.InputHTMLAttributes<HTMLInputElement> & { inputRef?: React.Ref<HTMLInputElement> }
+): React.JSX.Element {
+  const { inputRef, ...rest } = props
+  return (
+    <div className="shrink-0 p-2">
+      <TextInput ref={inputRef} className="w-full" {...rest} />
     </div>
   )
 }
@@ -130,7 +150,7 @@ export function ModalRow({
       ref={ref}
       onClick={onClick}
       onDoubleClick={onActivate}
-      className={`flex h-[25px] w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left text-[12px] ${
+      className={`focus-ring -outline-offset-2 flex h-(--size-row) w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left text-chrome ${
         selected ? 'bg-selection' : 'hover:bg-hover'
       }`}
     >

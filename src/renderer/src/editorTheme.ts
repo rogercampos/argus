@@ -23,15 +23,15 @@ const chrome = EditorView.theme(
       {
         backgroundColor: 'var(--color-selection)'
       },
-    '.cm-activeLine': { backgroundColor: '#ffffff08' },
+    '.cm-activeLine': { backgroundColor: 'var(--color-active-line)' },
     '.cm-gutters': {
       backgroundColor: 'var(--color-primary)',
       color: 'var(--color-fg-dim)',
       border: 'none'
     },
-    '.cm-activeLineGutter': { backgroundColor: '#ffffff08' },
-    '.cm-matchingBracket': { backgroundColor: '#528bff44', outline: 'none' },
-    '.cm-selectionMatch': { backgroundColor: '#383e4c88' }
+    '.cm-activeLineGutter': { backgroundColor: 'var(--color-active-line)' },
+    '.cm-matchingBracket': { backgroundColor: 'var(--color-bracket-match)', outline: 'none' },
+    '.cm-selectionMatch': { backgroundColor: 'var(--color-selection-match)' }
   },
   { dark: true }
 )

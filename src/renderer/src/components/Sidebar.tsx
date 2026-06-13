@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, mergePersisted, useWorkspaceStore } from '../store'
 import { makeTreeSort, sortPathsForTree } from '../treeSort'
+import { IconButton } from './ui/IconButton'
+import { SectionLabel } from './ui/SectionLabel'
 
 /** Mutable star set read by the sort comparator. */
 const starredRef = { current: new Set<string>() }
@@ -313,7 +315,7 @@ export function Sidebar(): React.JSX.Element {
       ])
 
       return (
-        <div className="min-w-44 rounded-md border border-edge bg-secondary py-1 font-ui shadow-[0_8px_30px_rgba(0,0,0,.4)]">
+        <div className="min-w-44 rounded-md border border-edge bg-secondary py-1 font-ui shadow-popover">
           {entries.map(([label, action]) => (
             <button
               type="button"
@@ -322,7 +324,7 @@ export function Sidebar(): React.JSX.Element {
                 context.close()
                 action()
               }}
-              className="block w-full cursor-pointer px-3 py-1 text-left text-[12px] text-fg hover:bg-hover"
+              className="focus-ring -outline-offset-2 block w-full cursor-pointer px-3 py-1 text-left text-chrome text-fg hover:bg-hover"
             >
               {label}
             </button>
@@ -336,19 +338,20 @@ export function Sidebar(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="truncate text-[11px] font-semibold tracking-wider text-fg-dim uppercase">
-          {rootName ?? 'No folder open'}
-        </span>
+        <SectionLabel className="truncate">{rootName ?? 'No folder open'}</SectionLabel>
         <div className="flex items-center gap-1">
-          {loadingTree && <span className="text-[11px] text-fg-dim">loading…</span>}
-          <button
-            type="button"
-            title="Reveal active file"
-            onClick={locate}
-            className="cursor-pointer rounded px-1 text-[12px] text-fg-dim hover:bg-hover hover:text-fg"
-          >
-            ◎
-          </button>
+          {loadingTree && <span className="text-label text-fg-dim">loading…</span>}
+          <IconButton title="Reveal active file" onClick={locate} className="size-6">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
+              <path
+                d="M8 1v2.5M8 12.5V15M1 8h2.5M12.5 8H15"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </IconButton>
         </div>
       </div>
       <div ref={treeContainerRef} className="min-h-0 flex-1">

@@ -49,7 +49,7 @@ export function FileIcon({ path }: { path: string }): React.JSX.Element {
   return (
     <span
       style={{ color: icon.color }}
-      className="inline-flex w-6 shrink-0 justify-center rounded bg-hover/60 px-0.5 font-mono text-[9px] leading-4 font-bold"
+      className="inline-flex w-6 shrink-0 justify-center rounded bg-hover/60 px-0.5 font-mono text-label leading-4 font-bold"
     >
       {icon.label}
     </span>

@@ -2,8 +2,9 @@ import { useCallback, useMemo, useState } from 'react'
 import { fuzzyMatch } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
 import { FileIcon } from './FileIcon'
-import { Highlighted, Modal, ModalRow } from './Modal'
+import { Highlighted, Modal, ModalRow, ModalSearchInput } from './Modal'
 import { PathTail } from './PathTail'
+import { EmptyState } from './ui/EmptyState'
 
 /** Recent Files popup (spec 05): fuzzy filter on filename, intent-based list. */
 export function RecentFilesModal(): React.JSX.Element {
@@ -60,8 +61,7 @@ export function RecentFilesModal(): React.JSX.Element {
 
   return (
     <Modal id="recent-files" defaultWidth={500} defaultHeight={450} onClose={close}>
-      <input
-        // biome-ignore lint/a11y/noAutofocus: modals own focus by design (spec 05)
+      <ModalSearchInput
         autoFocus
         value={query}
         onChange={(e) => {
@@ -70,7 +70,6 @@ export function RecentFilesModal(): React.JSX.Element {
         }}
         onKeyDown={onKeyDown}
         placeholder="Recent files…"
-        className="m-2 shrink-0 rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {entries.map((entry, index) => (
@@ -87,15 +86,13 @@ export function RecentFilesModal(): React.JSX.Element {
             {entry.hint && (
               <PathTail
                 text={entry.hint}
-                className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim"
+                className="ml-auto truncate pl-4 font-mono text-label text-fg-dim"
               />
             )}
           </ModalRow>
         ))}
         {entries.length === 0 && (
-          <div className="px-3 py-4 text-[12px] text-fg-dim">
-            {query ? 'No matching recent files' : 'No recent files yet'}
-          </div>
+          <EmptyState>{query ? 'No matching recent files' : 'No recent files yet'}</EmptyState>
         )}
       </div>
     </Modal>

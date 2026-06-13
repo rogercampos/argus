@@ -6,6 +6,9 @@ import { useWorkspaceStore } from '../store'
 import { Resizer } from './Resizer'
 import { FlagToggle } from './SearchModal'
 import { SearchPreview } from './SearchPreview'
+import { Button } from './ui/Button'
+import { EmptyState } from './ui/EmptyState'
+import { IconButton } from './ui/IconButton'
 
 /** Rows of the hierarchical results tree: file headers + matches (spec 03). */
 type TreeRow =
@@ -97,7 +100,7 @@ const HighlightedMatchText = memo(function HighlightedMatchText({
   )
 
   return (
-    <span className="truncate font-mono text-[11px]">
+    <span className="truncate font-mono text-label">
       {segments.map((seg) => (
         <span
           key={seg.from}
@@ -117,7 +120,7 @@ function TabHeader(): React.JSX.Element {
   const activeTab = useSearchStore((s) => s.activeTab)
 
   return (
-    <div className="flex h-[32px] shrink-0 items-center overflow-x-auto border-b border-edge [scrollbar-width:none]">
+    <div className="flex h-(--size-tabstrip) shrink-0 items-center overflow-x-auto border-b border-edge [scrollbar-width:none]">
       {tabs.map((tab, index) => {
         const active = index === activeTab
         const title = tab.pattern.length > 30 ? `${tab.pattern.slice(0, 30)}…` : tab.pattern
@@ -131,7 +134,7 @@ function TabHeader(): React.JSX.Element {
             <button
               type="button"
               onClick={() => useSearchStore.getState().activateTab(index)}
-              className="flex h-full cursor-pointer items-center gap-1.5 pl-3 font-mono text-[11px]"
+              className="focus-ring -outline-offset-2 flex h-full cursor-pointer items-center gap-1.5 pl-3 font-mono text-label"
             >
               {tab.results.running ? (
                 <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-fg-dim border-t-accent" />
@@ -141,27 +144,26 @@ function TabHeader(): React.JSX.Element {
               <span>{title}</span>
               <span className="text-fg-dim">({tab.results.total})</span>
             </button>
-            <button
-              type="button"
+            <IconButton
+              title="Close tab"
               onClick={() => useSearchStore.getState().closeTab(index)}
-              className={`cursor-pointer px-2 text-fg-dim hover:text-fg ${
-                active ? '' : 'opacity-0 group-hover:opacity-100'
-              }`}
+              className={`px-2 ${active ? '' : 'opacity-0 group-hover:opacity-100'}`}
             >
               ×
-            </button>
+            </IconButton>
           </div>
         )
       })}
       <div className="flex-1" />
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         title="Close all search tabs"
         onClick={() => useSearchStore.getState().closeAllTabs()}
-        className="shrink-0 cursor-pointer px-3 text-[11px] text-fg-dim hover:text-fg"
+        className="shrink-0"
       >
         Close all
-      </button>
+      </Button>
     </div>
   )
 }
@@ -176,11 +178,7 @@ export function SearchPanel(): React.JSX.Element {
   const rows = useMemo(() => (tab ? buildTreeRows(tab) : []), [tab])
 
   if (!tab) {
-    return (
-      <div className="flex h-full items-center justify-center text-[12px] text-fg-dim">
-        No searches yet — Cmd+Shift+F, then ⌘⏎ to pin one here
-      </div>
-    )
+    return <EmptyState center>No searches yet — Cmd+Shift+F, then ⌘⏎ to pin one here</EmptyState>
   }
 
   const selected = tab.results.matches[tab.selectedMatch] ?? null
@@ -211,16 +209,15 @@ export function SearchPanel(): React.JSX.Element {
     <div className="flex h-full flex-col">
       <TabHeader />
       <div className="flex shrink-0 items-center gap-1 border-b border-edge px-2 py-1">
-        <button
-          type="button"
+        <IconButton
           title="Re-run search"
           onClick={() => useSearchStore.getState().reRunTab(activeTab)}
-          className="cursor-pointer rounded px-1.5 text-[12px] text-fg-dim hover:bg-hover hover:text-fg"
+          className="px-1.5 text-chrome"
         >
           ↻
-        </button>
-        <span className="font-mono text-[11px] text-fg">{tab.pattern}</span>
-        <span className="text-[11px] text-fg-dim">
+        </IconButton>
+        <span className="font-mono text-label text-fg">{tab.pattern}</span>
+        <span className="text-label text-fg-dim tabular-nums">
           {tab.results.running
             ? `${tab.results.total} so far…`
             : `${tab.results.total}${tab.results.capped ? ' (capped)' : ''} results`}
@@ -272,15 +269,15 @@ export function SearchPanel(): React.JSX.Element {
                   useSearchStore.getState().selectTabMatch(activeTab, row.firstMatchIndex)
                   useSearchStore.getState().toggleFileCollapsed(activeTab, row.path)
                 }}
-                className="flex h-[26px] w-full shrink-0 cursor-pointer items-center gap-1.5 bg-primary/40 px-2 text-left"
+                className="focus-ring -outline-offset-2 flex h-(--size-row) w-full shrink-0 cursor-pointer items-center gap-1.5 bg-primary/40 px-2 text-left"
               >
                 <span
-                  className={`text-[10px] text-fg-dim transition-transform ${row.collapsed ? '' : 'rotate-90'}`}
+                  className={`text-label text-fg-dim transition-transform ${row.collapsed ? '' : 'rotate-90'}`}
                 >
                   ▶
                 </span>
-                <span className="truncate font-mono text-[11px] text-fg">{row.path}</span>
-                <span className="text-[10px] text-fg-dim">({row.count})</span>
+                <span className="truncate font-mono text-label text-fg">{row.path}</span>
+                <span className="text-label text-fg-dim tabular-nums">({row.count})</span>
               </button>
             ) : (
               <button
@@ -292,20 +289,22 @@ export function SearchPanel(): React.JSX.Element {
                     .getState()
                     .navigateTo(row.match.path, { line: row.match.line })
                 }
-                className={`flex h-[24px] w-full shrink-0 cursor-pointer items-center gap-2 pr-2 pl-7 text-left ${
+                className={`focus-ring -outline-offset-2 flex h-(--size-row) w-full shrink-0 cursor-pointer items-center gap-2 pr-2 pl-7 text-left ${
                   row.matchIndex === tab.selectedMatch ? 'bg-selection' : 'hover:bg-hover'
                 }`}
               >
-                <span className="shrink-0 font-mono text-[10px] text-fg-dim">{row.match.line}</span>
+                <span className="shrink-0 font-mono text-label text-fg-dim tabular-nums">
+                  {row.match.line}
+                </span>
                 <HighlightedMatchText match={row.match} />
               </button>
             )
           )}
           {tab.results.error && (
-            <div className="px-3 py-4 font-mono text-[12px] text-error">{tab.results.error}</div>
+            <div className="px-3 py-4 font-mono text-chrome text-error">{tab.results.error}</div>
           )}
           {rows.length === 0 && !tab.results.running && !tab.results.error && (
-            <div className="px-3 py-4 text-[12px] text-fg-dim">No results</div>
+            <EmptyState>No results</EmptyState>
           )}
         </div>
         <Resizer direction="horizontal" onDrag={() => {}} />

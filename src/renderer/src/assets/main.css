@@ -9,9 +9,11 @@
   --color-shell-top: #2b4580;
   --color-primary: #272c3a;
   --color-secondary: #232838;
-  --color-edge: #1a1e2a;
+  /* Crisp light hairline (opacity-based) — reads as a clean edge over both the
+     panel fills and the gradient shell, instead of a near-black groove. */
+  --color-edge: rgba(255, 255, 255, 0.1);
   --color-fg: #dde1e8;
-  --color-fg-dim: #808898;
+  --color-fg-dim: #8b93a4;
   --color-selection: #383e4c;
   --color-hover: #2e3445;
   --color-caret: #528bff;
@@ -22,16 +24,38 @@
   --color-cyanx: #56b6c2;
   --color-purplex: #c678dd;
   --color-orangex: #d19a66;
-  --color-button-primary: #50a14f;
+  /* Primary CTA shares the app's blue accent identity (was a competing green) */
+  --color-button-primary: #61afef;
+  --color-on-accent: #11182e;
   --color-star: #eab308;
   --color-git-modified: #6cb6d9;
-  --color-git-added: #50a14f;
+  --color-git-added: #98c379;
   --color-git-deleted: #ff5266;
   --color-git-untracked: #5c6370;
   --color-git-conflicted: #e06c75;
   --color-git-ignored: #d19a66;
   --color-excluded: #e06c75;
-  --color-external: #3e2723;
+  /* External-file tab tint: muted warm, on-palette (was a harsh red-brown) */
+  --color-external: #3a2f23;
+
+  /* Tokenized overlays/scrollbar (previously hardcoded hex) */
+  --color-scrollbar: rgba(120, 130, 150, 0.45);
+  --color-active-line: rgba(255, 255, 255, 0.03);
+  --color-bracket-match: rgba(82, 139, 255, 0.27);
+  --color-selection-match: rgba(56, 62, 76, 0.53);
+
+  /* Type scale (rem) — floor at 11px; no 9–10px text */
+  --text-label: 0.6875rem; /* 11px */
+  --text-chrome: 0.75rem; /* 12px */
+  --text-body: 0.8125rem; /* 13px */
+
+  /* Shared chrome sizing — one source of truth for tab strips and list rows */
+  --size-tabstrip: 34px;
+  --size-row: 26px;
+
+  /* Elevation */
+  --shadow-popover: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --shadow-toast: 0 4px 16px rgba(0, 0, 0, 0.4);
 
   --font-ui: 'Inter Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
@@ -39,6 +63,15 @@
 
 html {
   color-scheme: dark;
+}
+
+/* Shared keyboard-focus ring for ad-hoc clickable elements that aren't the
+   Button/IconButton/TextInput primitives. Only shows for keyboard focus; the
+   offset is left to the element (default 0, or `-outline-offset-2` for rows). */
+@utility focus-ring {
+  @variant focus-visible {
+    outline: 2px solid var(--color-accent);
+  }
 }
 
 html,
@@ -65,10 +98,14 @@ file-tree-container {
 
 body {
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 0.8125rem; /* 13px — --text-body */
   color: var(--color-fg);
   user-select: none;
   cursor: default;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Inter OpenType character variants for crisper rendering at small sizes */
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
 }
 
 /* The signature gradient shell background (spec 13) */
@@ -178,7 +215,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #444a58bb;
+  background: var(--color-scrollbar);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;

@@ -2,6 +2,7 @@ import { EditorView } from '@codemirror/view'
 import { useEffect, useRef } from 'react'
 import type { SearchMatch } from '../../../shared/types'
 import { activeTabPath, documents, getExtensionsForPath, useWorkspaceStore } from '../store'
+import { EmptyState } from './ui/EmptyState'
 
 /**
  * Editable search preview (spec 03, flagship): a real editor view over the
@@ -81,15 +82,13 @@ export function SearchPreview({ match }: { match: SearchMatch | null }): React.J
     <div className="flex h-full min-w-0 flex-col">
       {match ? (
         <>
-          <div className="shrink-0 border-b border-edge px-3 py-1 font-mono text-[11px] text-fg-dim">
+          <div className="shrink-0 border-b border-edge px-3 py-1 font-mono text-label text-fg-dim">
             {match.path}
           </div>
           <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden bg-primary" />
         </>
       ) : (
-        <div className="flex h-full items-center justify-center text-[12px] text-fg-dim">
-          Select a match to preview it
-        </div>
+        <EmptyState center>Select a match to preview it</EmptyState>
       )}
     </div>
   )

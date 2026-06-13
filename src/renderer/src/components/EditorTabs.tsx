@@ -23,7 +23,7 @@ export function EditorTabs(): React.JSX.Element | null {
   if (tabs.tabs.length === 0) return null
 
   return (
-    <div className="relative flex h-[35px] shrink-0 items-end overflow-x-auto border-b border-edge bg-secondary [scrollbar-width:none]">
+    <div className="relative flex h-(--size-tabstrip) shrink-0 items-end overflow-x-auto border-b border-edge bg-secondary [scrollbar-width:none]">
       {tabs.tabs.map((tab, index) => {
         const name = tab.path.split('/').pop()
         const active = index === tabs.activeIndex
@@ -47,7 +47,7 @@ export function EditorTabs(): React.JSX.Element | null {
                 e.preventDefault()
                 setMenu({ x: e.clientX, y: e.clientY, tabIndex: index })
               }}
-              className="flex h-full cursor-pointer items-center gap-1.5 pl-3 text-[12px]"
+              className="focus-ring -outline-offset-2 flex h-full cursor-pointer items-center gap-1.5 pl-3 text-chrome"
               title={tab.path}
             >
               <FileIcon path={tab.path} />
@@ -61,7 +61,7 @@ export function EditorTabs(): React.JSX.Element | null {
                 e.stopPropagation()
                 void useWorkspaceStore.getState().closeTabAt(index)
               }}
-              className={`flex h-full w-6 cursor-pointer items-center justify-center text-[13px] ${
+              className={`focus-ring -outline-offset-2 flex h-full w-6 cursor-pointer items-center justify-center text-body ${
                 dirty
                   ? 'text-caret hover:text-fg [&>.dot]:group-hover:hidden [&>.x]:hidden [&>.x]:group-hover:block'
                   : `text-fg-dim hover:text-fg ${active ? '' : 'opacity-0 group-hover:opacity-100'}`
@@ -69,7 +69,7 @@ export function EditorTabs(): React.JSX.Element | null {
             >
               {dirty ? (
                 <>
-                  <span className="dot h-1.5 w-1.5 rounded-full bg-caret" />
+                  <span className="dot h-1.5 w-1.5 rounded-full bg-caret" title="Unsaved changes" />
                   <span className="x">×</span>
                 </>
               ) : (
@@ -83,7 +83,7 @@ export function EditorTabs(): React.JSX.Element | null {
       {menu && (
         <div
           style={{ left: menu.x, top: menu.y }}
-          className="fixed z-50 min-w-40 rounded-md border border-edge bg-secondary py-1 shadow-[0_8px_30px_rgba(0,0,0,.4)]"
+          className="fixed z-50 min-w-40 rounded-md border border-edge bg-secondary py-1 shadow-popover"
           onPointerDown={(e) => e.stopPropagation()}
         >
           {(
@@ -100,7 +100,7 @@ export function EditorTabs(): React.JSX.Element | null {
                 setMenu(null)
                 void action()
               }}
-              className="block w-full cursor-pointer px-3 py-1 text-left text-[12px] hover:bg-hover"
+              className="focus-ring -outline-offset-2 block w-full cursor-pointer px-3 py-1 text-left text-chrome hover:bg-hover"
             >
               {label}
             </button>

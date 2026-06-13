@@ -107,7 +107,7 @@ export function EditorPane(): React.JSX.Element {
           className={`h-full overflow-hidden ${activePath ? '' : 'hidden'}`}
         />
         {!activePath && (
-          <div className="absolute inset-0 flex items-center justify-center text-[13px] text-fg-dim">
+          <div className="absolute inset-0 flex items-center justify-center text-body text-fg-dim">
             Open a file from the tree — or Cmd+Shift+O
           </div>
         )}

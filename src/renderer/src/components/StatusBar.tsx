@@ -2,6 +2,7 @@ import type { ProcStatEntry } from '../../../shared/types'
 import { useProcStore } from '../procStore'
 import { useWorkspaceStore } from '../store'
 import { useTasksStore } from '../tasksStore'
+import { SectionLabel } from './ui/SectionLabel'
 
 function TasksIndicator(): React.JSX.Element | null {
   const tasks = useTasksStore((s) => s.tasks)
@@ -15,7 +16,7 @@ function TasksIndicator(): React.JSX.Element | null {
       <button
         type="button"
         onClick={() => useTasksStore.getState().togglePopup()}
-        className="flex cursor-pointer items-center gap-1.5 hover:text-fg"
+        className="focus-ring flex cursor-pointer items-center gap-1.5 hover:text-fg"
       >
         <span className="inline-block h-3 w-3 animate-spin rounded-full border border-fg-dim border-t-accent" />
         <span className="max-w-72 truncate">
@@ -24,9 +25,9 @@ function TasksIndicator(): React.JSX.Element | null {
         </span>
       </button>
       {popupVisible && (
-        <div className="absolute bottom-7 left-0 z-50 max-h-75 w-100 overflow-y-auto rounded-md border border-edge bg-secondary p-2 shadow-[0_8px_30px_rgba(0,0,0,.4)]">
+        <div className="absolute bottom-7 left-0 z-50 max-h-75 w-100 overflow-y-auto rounded-md border border-edge bg-secondary p-2 shadow-popover">
           {tasks.map((task) => (
-            <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 text-[12px]">
+            <div key={task.id} className="flex items-center gap-2 px-2 py-1.5 text-chrome">
               <span
                 className={`inline-block h-2.5 w-2.5 rounded-full ${
                   task.state === 'active'
@@ -66,16 +67,12 @@ function formatUptime(ms: number): string {
 }
 
 function ProcSectionHeader({ title }: { title: string }): React.JSX.Element {
-  return (
-    <div className="px-2 pt-2 pb-0.5 text-[10px] font-semibold tracking-wider text-fg-dim uppercase">
-      {title}
-    </div>
-  )
+  return <SectionLabel className="px-2 pt-2 pb-0.5">{title}</SectionLabel>
 }
 
 function ProcRow({ entry }: { entry: ProcStatEntry }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-2 px-2 py-1 text-[12px]">
+    <div className="flex items-center gap-2 px-2 py-1 text-chrome">
       <span className="truncate text-fg" title={`pid ${entry.pid}`}>
         {entry.label}
       </span>
@@ -117,13 +114,13 @@ function ProcessesIndicator(): React.JSX.Element | null {
       <button
         type="button"
         onClick={() => useProcStore.getState().togglePopup()}
-        className="cursor-pointer tabular-nums hover:text-fg"
+        className="focus-ring cursor-pointer tabular-nums hover:text-fg"
         title="External processes (LSP servers, tools)"
       >
         {summary}
       </button>
       {popupVisible && (
-        <div className="absolute bottom-7 left-0 z-50 max-h-100 w-110 overflow-y-auto rounded-md border border-edge bg-secondary p-2 shadow-[0_8px_30px_rgba(0,0,0,.4)]">
+        <div className="absolute bottom-7 left-0 z-50 max-h-100 w-110 overflow-y-auto rounded-md border border-edge bg-secondary p-2 shadow-popover">
           {servers.length > 0 && (
             <>
               <ProcSectionHeader title="Language servers" />
@@ -145,12 +142,12 @@ function ProcessesIndicator(): React.JSX.Element | null {
             </>
           )}
           {snapshot.entries.length === 0 && (
-            <div className="px-2 py-1 text-[12px] text-fg-dim">No external processes running</div>
+            <div className="px-2 py-1 text-chrome text-fg-dim">No external processes running</div>
           )}
           {recentActivity.length > 0 && (
             <>
               <ProcSectionHeader title="Activity (last 5 min)" />
-              <div className="px-2 py-1 text-[12px] text-fg-dim">
+              <div className="px-2 py-1 text-chrome text-fg-dim">
                 {recentActivity
                   .map(
                     (a) =>
@@ -162,7 +159,7 @@ function ProcessesIndicator(): React.JSX.Element | null {
           )}
           <ProcSectionHeader title="App" />
           {snapshot.app.map((proc) => (
-            <div key={proc.pid} className="flex items-center gap-2 px-2 py-1 text-[12px]">
+            <div key={proc.pid} className="flex items-center gap-2 px-2 py-1 text-chrome">
               <span className="truncate text-fg" title={`pid ${proc.pid}`}>
                 {proc.type}
               </span>
@@ -186,7 +183,7 @@ export function StatusBar(): React.JSX.Element {
   const language = useWorkspaceStore((s) => s.language)
 
   return (
-    <footer className="flex h-[25px] shrink-0 items-center gap-4 rounded-md border border-edge bg-secondary px-3 text-[11px] text-fg-dim">
+    <footer className="flex h-[25px] shrink-0 items-center gap-4 rounded-md border border-edge bg-secondary px-3 text-label text-fg-dim">
       <TasksIndicator />
       <ProcessesIndicator />
       <div className="flex-1" />
@@ -194,7 +191,7 @@ export function StatusBar(): React.JSX.Element {
         <button
           type="button"
           onClick={() => useWorkspaceStore.getState().setModal('go-to-line')}
-          className="cursor-pointer hover:text-fg"
+          className="focus-ring cursor-pointer tabular-nums hover:text-fg"
         >
           {cursor.line}:{cursor.col}
         </button>

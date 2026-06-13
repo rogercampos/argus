@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LspSymbol } from '../../../shared/types'
 import { useWorkspaceStore } from '../store'
-import { Modal, ModalRow } from './Modal'
+import { Modal, ModalRow, ModalSearchInput } from './Modal'
 import { PathTail } from './PathTail'
+import { Badge } from './ui/Badge'
+import { EmptyState } from './ui/EmptyState'
 
 const SYMBOL_KIND_LABELS: Record<number, string> = {
   5: 'class',
@@ -70,14 +72,12 @@ export function GoToSymbolModal(): React.JSX.Element {
 
   return (
     <Modal id="go-to-symbol" defaultWidth={800} defaultHeight={600} onClose={close}>
-      <input
-        // biome-ignore lint/a11y/noAutofocus: modals own focus (spec 05)
+      <ModalSearchInput
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Type a symbol name…"
-        className="m-2 shrink-0 rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {symbols.map((symbol, index) => (
@@ -87,23 +87,19 @@ export function GoToSymbolModal(): React.JSX.Element {
             onClick={() => open(symbol)}
             onActivate={() => open(symbol)}
           >
-            <span className="shrink-0 rounded bg-hover px-1 text-[10px] text-fg-dim">
-              {SYMBOL_KIND_LABELS[symbol.kind] ?? 'sym'}
-            </span>
+            <Badge>{SYMBOL_KIND_LABELS[symbol.kind] ?? 'sym'}</Badge>
             <span className="truncate">{symbol.name}</span>
             {symbol.containerName && (
-              <span className="truncate text-[11px] text-fg-dim">{symbol.containerName}</span>
+              <span className="truncate text-label text-fg-dim">{symbol.containerName}</span>
             )}
             <PathTail
               text={symbol.location.path}
-              className="ml-auto truncate pl-4 font-mono text-[10px] text-fg-dim"
+              className="ml-auto truncate pl-4 font-mono text-label text-fg-dim"
             />
           </ModalRow>
         ))}
         {symbols.length === 0 && query && (
-          <div className="px-3 py-4 text-[12px] text-fg-dim">
-            No symbols (is a language server running for this project?)
-          </div>
+          <EmptyState>No symbols (is a language server running for this project?)</EmptyState>
         )}
       </div>
     </Modal>

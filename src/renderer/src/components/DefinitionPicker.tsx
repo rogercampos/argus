@@ -58,8 +58,8 @@ export function DefinitionPicker({ choices }: { choices: LspLocation[] }): React
         if (e.target === e.currentTarget) close()
       }}
     >
-      <div className="absolute top-1/3 left-1/2 w-150 max-w-[90vw] -translate-x-1/2 rounded-md border border-edge bg-secondary py-1 shadow-[0_8px_30px_rgba(0,0,0,.4)]">
-        <div className="px-3 py-1 text-[11px] font-semibold text-fg-dim">
+      <div className="absolute top-1/3 left-1/2 w-150 max-w-[90vw] -translate-x-1/2 rounded-md border border-edge bg-secondary py-1 shadow-popover">
+        <div className="px-3 py-1 text-label font-semibold text-fg-dim">
           {choices.length} definitions
         </div>
         {choices.map((loc, index) => (
@@ -71,8 +71,8 @@ export function DefinitionPicker({ choices }: { choices: LspLocation[] }): React
               index === selected ? 'bg-selection' : 'hover:bg-hover'
             }`}
           >
-            <span className="truncate font-mono text-[12px]">{shortenRubyPath(loc.path)}</span>
-            <span className="ml-auto shrink-0 font-mono text-[10px] text-fg-dim">
+            <span className="truncate font-mono text-chrome">{shortenRubyPath(loc.path)}</span>
+            <span className="ml-auto shrink-0 font-mono text-label text-fg-dim">
               :{loc.line + 1}
             </span>
           </button>

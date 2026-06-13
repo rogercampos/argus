@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { RecentWorkspaceEntry } from '../../../shared/types'
+import { Button } from './ui/Button'
+import { IconButton } from './ui/IconButton'
+import { SectionLabel } from './ui/SectionLabel'
 
 function displayPath(path: string): string {
   // `~` for home everywhere (spec 13)
@@ -15,27 +18,23 @@ export function Welcome(): React.JSX.Element {
 
   return (
     <div className="shell-gradient drag-region flex h-screen flex-col items-center justify-center">
-      <div className="no-drag flex w-95 flex-col items-center">
-        <div className="mb-8 text-4xl font-bold tracking-[0.3em] text-fg/15 select-none">ARGUS</div>
+      <div className="no-drag flex w-95 flex-col items-center gap-7">
+        <div className="text-4xl font-semibold tracking-[0.3em] text-fg/15 select-none">ARGUS</div>
 
-        <div className="w-full">
-          <div className="mb-2 text-[11px] font-semibold tracking-wider text-fg-dim uppercase">
-            Start
-          </div>
-          <button
-            type="button"
+        <div className="flex w-full flex-col gap-2">
+          <SectionLabel>Start</SectionLabel>
+          <Button
+            variant="secondary"
+            className="self-start"
             onClick={() => void window.api.openFolderDialog()}
-            className="cursor-pointer rounded-md border border-edge bg-secondary px-5 py-2 text-[13px] hover:bg-hover"
           >
             Open Folder…
-          </button>
+          </Button>
         </div>
 
         {recents.length > 0 && (
-          <div className="mt-7 w-full">
-            <div className="mb-2 text-[11px] font-semibold tracking-wider text-fg-dim uppercase">
-              Recent
-            </div>
+          <div className="flex w-full flex-col gap-2">
+            <SectionLabel>Recent</SectionLabel>
             <div className="flex max-h-56 flex-col overflow-y-auto">
               {recents.map((entry) => {
                 const name = entry.path.split('/').filter(Boolean).pop()
@@ -47,25 +46,24 @@ export function Welcome(): React.JSX.Element {
                     <button
                       type="button"
                       onClick={() => void window.api.openWorkspace(entry.path)}
-                      className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-3 px-2.5 py-1.5 text-left"
+                      className="focus-ring -outline-offset-2 flex min-w-0 flex-1 cursor-pointer items-baseline gap-3 rounded-md px-2.5 py-1.5 text-left"
                     >
-                      <span className="text-[13px] text-accent">{name}</span>
-                      <span className="truncate font-mono text-[11px] text-fg-dim">
+                      <span className="text-body text-accent">{name}</span>
+                      <span className="truncate font-mono text-label text-fg-dim">
                         {displayPath(entry.path)}
                       </span>
                     </button>
-                    <button
-                      type="button"
+                    <IconButton
                       title="Remove from recent workspaces"
                       onClick={() => {
                         void window.api.removeRecentWorkspace(entry.path).then(() => {
                           setRecents((current) => current.filter((e) => e.path !== entry.path))
                         })
                       }}
-                      className="shrink-0 cursor-pointer px-2.5 py-1.5 text-[13px] text-fg-dim opacity-0 group-hover:opacity-100 hover:text-error"
+                      className="shrink-0 px-2.5 py-1.5 text-body opacity-0 group-hover:opacity-100 hover:text-error"
                     >
                       ×
-                    </button>
+                    </IconButton>
                   </div>
                 )
               })}

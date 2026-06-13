@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { activeTabPath, activeView, documents, jumpHistory, useWorkspaceStore } from '../store'
 import { Modal } from './Modal'
+import { Button } from './ui/Button'
+import { TextInput } from './ui/TextInput'
 
 /** Go to Line (spec 05): accepts N or N:C, 1-indexed, clamps, centers. */
 export function GoToLineModal(): React.JSX.Element {
@@ -35,8 +37,7 @@ export function GoToLineModal(): React.JSX.Element {
   return (
     <Modal id="go-to-line" defaultWidth={300} defaultHeight={110} minHeight={80} onClose={close}>
       <div className="flex h-full flex-col gap-2 p-3">
-        <input
-          // biome-ignore lint/a11y/noAutofocus: modals own focus by design (spec 05)
+        <TextInput
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -47,15 +48,10 @@ export function GoToLineModal(): React.JSX.Element {
             }
           }}
           placeholder="Line[:column]"
-          className="rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
         />
-        <button
-          type="button"
-          onClick={go}
-          className="ml-auto cursor-pointer rounded bg-button-primary px-4 py-1 text-[12px] font-medium text-black hover:opacity-90"
-        >
+        <Button variant="primary" size="sm" className="ml-auto" onClick={go}>
           Go
-        </button>
+        </Button>
       </div>
     </Modal>
   )

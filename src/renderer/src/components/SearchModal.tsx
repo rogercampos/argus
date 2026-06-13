@@ -4,6 +4,10 @@ import { useSearchStore } from '../searchStore'
 import { documents, getExtensionsForPath, useWorkspaceStore } from '../store'
 import { Modal } from './Modal'
 import { SearchPreview } from './SearchPreview'
+import { Button } from './ui/Button'
+import { EmptyState } from './ui/EmptyState'
+import { IconButton } from './ui/IconButton'
+import { TextInput } from './ui/TextInput'
 
 /** Toggle button for case / word / regex flags. */
 export function FlagToggle({
@@ -21,8 +25,9 @@ export function FlagToggle({
     <button
       type="button"
       title={title}
+      aria-pressed={active}
       onClick={onToggle}
-      className={`cursor-pointer rounded px-1.5 py-0.5 font-mono text-[11px] ${
+      className={`focus-ring cursor-pointer rounded px-1.5 py-0.5 font-mono text-label ${
         active ? 'bg-caret/30 text-accent' : 'text-fg-dim hover:bg-hover'
       }`}
     >
@@ -59,27 +64,22 @@ export function ScopeRow({
   }, [picking, paths, filter])
 
   return (
-    <div className="relative flex shrink-0 items-center gap-2 border-b border-edge px-3 py-1 text-[11px]">
+    <div className="relative flex shrink-0 items-center gap-2 border-b border-edge px-3 py-1 text-label">
       <button
         type="button"
         onClick={() => setPicking(!picking)}
-        className="cursor-pointer text-fg-dim hover:text-fg"
+        className="focus-ring cursor-pointer text-fg-dim hover:text-fg"
       >
         Folder: <span className="text-accent">{scope ?? 'All files'}</span>
       </button>
       {scope && (
-        <button
-          type="button"
-          onClick={() => onScope(null)}
-          className="cursor-pointer text-fg-dim hover:text-fg"
-        >
+        <IconButton title="Clear folder scope" onClick={() => onScope(null)} className="px-1">
           ✕
-        </button>
+        </IconButton>
       )}
       {picking && (
-        <div className="absolute top-full left-2 z-50 mt-1 w-96 rounded-md border border-edge bg-secondary p-1 shadow-[0_8px_30px_rgba(0,0,0,.4)]">
-          <input
-            // biome-ignore lint/a11y/noAutofocus: transient picker
+        <div className="absolute top-full left-2 z-50 mt-1 w-96 rounded-md border border-edge bg-secondary p-1 shadow-popover">
+          <TextInput
             autoFocus
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -94,7 +94,7 @@ export function ScopeRow({
               }
             }}
             placeholder="Filter folders…"
-            className="mb-1 w-full rounded border border-edge bg-primary px-2 py-1 font-mono text-[11px] outline-none"
+            className="mb-1 w-full px-2 py-1 text-label"
           />
           <div className="max-h-48 overflow-y-auto">
             {directories.map((dir) => (
@@ -105,7 +105,7 @@ export function ScopeRow({
                   onScope(dir)
                   setPicking(false)
                 }}
-                className="block w-full cursor-pointer truncate rounded px-2 py-0.5 text-left font-mono text-[11px] hover:bg-hover"
+                className="focus-ring -outline-offset-2 block w-full cursor-pointer truncate rounded px-2 py-0.5 text-left font-mono text-label hover:bg-hover"
               >
                 {dir}
               </button>
@@ -141,11 +141,11 @@ function ResultRow({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
       onDoubleClick={onOpen}
-      className={`flex h-[26px] w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left ${
+      className={`focus-ring -outline-offset-2 flex h-(--size-row) w-full shrink-0 cursor-pointer items-center gap-2 px-3 text-left ${
         selected ? 'bg-selection' : 'hover:bg-hover'
       }`}
     >
-      <span className="truncate font-mono text-[11px]">
+      <span className="truncate font-mono text-label">
         {sub ? (
           <>
             {match.text.slice(0, sub.start)}
@@ -158,7 +158,7 @@ function ResultRow({
           match.text
         )}
       </span>
-      <span className="ml-auto shrink-0 font-mono text-[10px] text-fg-dim">
+      <span className="ml-auto shrink-0 font-mono text-label text-fg-dim tabular-nums">
         {name}:{match.line}
       </span>
     </button>
@@ -262,16 +262,15 @@ export function SearchModal(): React.JSX.Element {
   return (
     <Modal id="global-search" defaultWidth={1100} defaultHeight={600} onClose={close}>
       <div className="flex shrink-0 items-center gap-1 border-b border-edge p-2">
-        <input
+        <TextInput
           ref={inputRef}
-          // biome-ignore lint/a11y/noAutofocus: modals own focus (spec 05)
           autoFocus
           value={s.modalPattern}
           onChange={(e) => useSearchStore.getState().runModalSearch(e.target.value)}
           onFocus={(e) => e.target.select()}
           onKeyDown={onKeyDown}
           placeholder="Search in all files…"
-          className="min-w-0 flex-1 rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
+          className="min-w-0 flex-1"
         />
         <FlagToggle
           label="Aa"
@@ -295,26 +294,18 @@ export function SearchModal(): React.JSX.Element {
 
       {s.replaceMode && (
         <div className="flex shrink-0 items-center gap-2 border-b border-edge p-2">
-          <input
+          <TextInput
             value={s.replaceText}
             onChange={(e) => useSearchStore.getState().setReplaceText(e.target.value)}
             placeholder="Replace with…"
-            className="min-w-0 flex-1 rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
+            className="min-w-0 flex-1"
           />
-          <button
-            type="button"
-            onClick={() => void replaceSelected()}
-            className="cursor-pointer rounded border border-edge px-3 py-1 text-[11px] hover:bg-hover"
-          >
+          <Button variant="secondary" size="sm" onClick={() => void replaceSelected()}>
             Replace
-          </button>
-          <button
-            type="button"
-            onClick={() => void runReplaceAll()}
-            className="cursor-pointer rounded bg-button-primary px-3 py-1 text-[11px] font-medium text-black hover:opacity-90"
-          >
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => void runReplaceAll()}>
             Replace All
-          </button>
+          </Button>
         </div>
       )}
 
@@ -336,22 +327,20 @@ export function SearchModal(): React.JSX.Element {
             />
           ))}
           {s.modalResults.error && (
-            <div className="px-3 py-4 font-mono text-[12px] text-error">{s.modalResults.error}</div>
+            <div className="px-3 py-4 font-mono text-chrome text-error">{s.modalResults.error}</div>
           )}
           {s.modalResults.matches.length === 0 &&
             s.modalPattern &&
             !s.modalResults.running &&
-            !s.modalResults.error && (
-              <div className="px-3 py-4 text-[12px] text-fg-dim">No results</div>
-            )}
+            !s.modalResults.error && <EmptyState>No results</EmptyState>}
         </div>
         <div className="w-1/2">
           <SearchPreview match={selectedMatch} />
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center border-t border-edge px-3 py-1.5 text-[11px] text-fg-dim">
-        <span>
+      <div className="flex shrink-0 items-center border-t border-edge px-3 py-1.5 text-label text-fg-dim">
+        <span className="tabular-nums">
           {replaceAllStatus ??
             (s.modalResults.error
               ? 'Search error'
@@ -361,13 +350,14 @@ export function SearchModal(): React.JSX.Element {
                   ? `Showing first ${s.modalResults.total} — refine your search`
                   : `Found ${s.modalResults.total} results`)}
         </span>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
           onClick={() => s.modalPattern && useSearchStore.getState().openInPanel()}
-          className="ml-auto cursor-pointer rounded border border-edge px-2 py-0.5 hover:bg-hover"
         >
           Open in Search Panel ⌘⏎
-        </button>
+        </Button>
       </div>
     </Modal>
   )

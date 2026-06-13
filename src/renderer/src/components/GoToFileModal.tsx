@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RankedItem } from '../fuzzy'
 import { useWorkspaceStore } from '../store'
 import { FileIcon } from './FileIcon'
-import { Highlighted, Modal, ModalRow } from './Modal'
+import { Highlighted, Modal, ModalRow, ModalSearchInput } from './Modal'
 import { PathTail } from './PathTail'
+import { EmptyState } from './ui/EmptyState'
 
 /** Workspace paths minus excluded prefixes (spec 07). */
 function visiblePaths(): string[] {
@@ -122,9 +123,8 @@ export function GoToFileModal(): React.JSX.Element {
 
   return (
     <Modal id="go-to-file" defaultWidth={800} defaultHeight={520} onClose={close}>
-      <input
-        ref={inputRef}
-        // biome-ignore lint/a11y/noAutofocus: modals own focus by design (spec 05)
+      <ModalSearchInput
+        inputRef={inputRef}
         autoFocus
         value={query}
         onChange={(e) => {
@@ -134,7 +134,6 @@ export function GoToFileModal(): React.JSX.Element {
         onFocus={(e) => e.target.select()}
         onKeyDown={onKeyDown}
         placeholder="Type a file name or path…"
-        className="m-2 shrink-0 rounded border border-edge bg-primary px-3 py-1.5 font-mono text-[13px] outline-none placeholder:text-fg-dim"
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {items.map((item, index) => {
@@ -155,17 +154,15 @@ export function GoToFileModal(): React.JSX.Element {
               </span>
               <PathTail
                 text={dir}
-                className="ml-auto truncate pl-4 font-mono text-[11px] text-fg-dim"
+                className="ml-auto truncate pl-4 font-mono text-label text-fg-dim"
               />
             </ModalRow>
           )
         })}
-        {items.length === 0 && query && (
-          <div className="px-3 py-4 text-[12px] text-fg-dim">No matching files</div>
-        )}
+        {items.length === 0 && query && <EmptyState>No matching files</EmptyState>}
       </div>
       {total > LIMIT && (
-        <div className="shrink-0 border-t border-edge px-3 py-1 text-[11px] text-fg-dim">
+        <div className="shrink-0 border-t border-edge px-3 py-1 text-label text-fg-dim">
           Showing first {LIMIT} results — refine your search for more
         </div>
       )}

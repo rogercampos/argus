@@ -22,6 +22,7 @@ import { Sidebar } from './Sidebar'
 import { SlowOpsModal } from './SlowOpsModal'
 import { StatusBar } from './StatusBar'
 import { TitleBar } from './TitleBar'
+import { Toast } from './ui/Toast'
 
 const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
 
@@ -172,7 +173,7 @@ export function WorkspaceShell(): React.JSX.Element {
   const definitionChoices = useWorkspaceStore((s) => s.definitionChoices)
 
   return (
-    <div className="shell-gradient flex h-screen flex-col">
+    <div className="shell-gradient isolate flex h-screen flex-col">
       {openModal === 'go-to-file' && <GoToFileModal />}
       {openModal === 'recent-files' && <RecentFilesModal />}
       {openModal === 'go-to-line' && <GoToLineModal />}
@@ -208,19 +209,16 @@ export function WorkspaceShell(): React.JSX.Element {
           )}
           <main className="relative min-w-0 flex-1 overflow-hidden rounded-md border border-edge bg-primary">
             {notice && (
-              <div className="absolute top-10 left-1/2 z-30 -translate-x-1/2 rounded-md border border-edge bg-secondary px-3 py-1.5 text-[12px] text-fg-dim shadow-[0_4px_16px_rgba(0,0,0,.4)]">
-                {notice}
-              </div>
+              <Toast className="absolute top-10 left-1/2 z-30 -translate-x-1/2">{notice}</Toast>
             )}
             {fileError && (
-              <button
-                type="button"
-                onClick={() => useWorkspaceStore.setState({ fileError: null })}
-                className="absolute top-10 right-3 z-30 cursor-pointer rounded-md border border-edge bg-secondary px-3 py-1.5 text-[12px] text-warning shadow-[0_4px_16px_rgba(0,0,0,.4)]"
-                title="Dismiss"
+              <Toast
+                variant="error"
+                onDismiss={() => useWorkspaceStore.setState({ fileError: null })}
+                className="absolute top-10 right-3 z-30 max-w-[min(28rem,60%)]"
               >
-                {fileError} ✕
-              </button>
+                {fileError}
+              </Toast>
             )}
             <EditorPane />
           </main>
