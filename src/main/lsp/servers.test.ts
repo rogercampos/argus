@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -46,6 +46,7 @@ describe('server registry resolution (spec 08)', () => {
     expect(await config(emptyRegistry, 'ruby-lsp').command(projectRoot, dataDir)).toBeNull()
 
     writeFileSync(join(binDir, 'ruby-lsp'), '#!/bin/sh\n')
+    chmodSync(join(binDir, 'ruby-lsp'), 0o755) // resolved only when executable
     expect(await config(registry, 'ruby-lsp').command(projectRoot, dataDir)).toEqual({
       cmd: join(binDir, 'ruby-lsp'),
       args: []
@@ -54,6 +55,17 @@ describe('server registry resolution (spec 08)', () => {
       cmd: 'gem',
       args: ['install', 'ruby-lsp']
     })
+  })
+
+  it('ignores a non-executable file of the same name on PATH', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'argus-servers-noexec-'))
+    try {
+      writeFileSync(join(dir, 'ruby-lsp'), '#!/bin/sh\n') // present but not +x
+      const reg = buildServerRegistry({ PATH: dir })
+      expect(await config(reg, 'ruby-lsp').command(projectRoot, dataDir)).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('ruby-lsp settings exclude lockfile gems when asked', async () => {
@@ -81,6 +93,7 @@ describe('server registry resolution (spec 08)', () => {
     expect(await config(emptyRegistry, 'sorbet').command(projectRoot, dataDir)).toBeNull()
 
     writeFileSync(join(binDir, 'srb'), '#!/bin/sh\n')
+    chmodSync(join(binDir, 'srb'), 0o755)
     expect(await cfg.command(projectRoot, dataDir)).toEqual({
       cmd: join(binDir, 'srb'),
       args: ['tc', '--lsp']

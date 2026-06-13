@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs'
+import { constants, promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -60,7 +60,9 @@ async function binaryOnPath(env: Record<string, string>, name: string): Promise<
   for (const dir of (env.PATH ?? '').split(':')) {
     if (!dir) continue
     try {
-      await fs.access(join(dir, name))
+      // X_OK, not mere existence: a non-executable file of the same name on
+      // PATH must not be picked as the server binary
+      await fs.access(join(dir, name), constants.X_OK)
       return join(dir, name)
     } catch {
       // keep looking

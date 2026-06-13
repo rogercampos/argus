@@ -188,8 +188,9 @@ All items below were addressed on 2026-06-13 (one commit each).
   paths.includes(p))` (O(recents × paths) over ~100k) now uses a `Set`. The
   `paths.sort()` was left as-is — empty-query is on modal-open, not per
   keystroke, so caching it would add invalidation complexity for little gain.
-- **`binaryOnPath` uses `F_OK`** (`servers.ts:63`): a non-executable file on
-  PATH would be selected; use `fs.constants.X_OK`.
+- ✅ **`binaryOnPath` uses `F_OK`** (`servers.ts:63`): now checks `constants.X_OK`,
+  so a non-executable file of the same name on PATH is no longer picked as the
+  server binary. Tests updated to create executable fakes + a non-exec case.
 - **Per-file view-state files leak** (`state.ts:126`):
   `workspaces/<hash>/files/<filehash>.json` are never GC'd when the repo file is
   deleted.
