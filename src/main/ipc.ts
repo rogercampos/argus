@@ -1,5 +1,6 @@
 import { join } from 'node:path'
-import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
+import type { KeymapConfig } from '../shared/shortcuts'
 import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
 import { startGitMonitor } from './git'
 import { lspManagerFor } from './lsp/manager'
@@ -18,9 +19,11 @@ import { type RunningSearch, replaceAll, runSearch } from './search'
 import {
   listRecentWorkspaces,
   loadFileViewState,
+  loadKeymap,
   loadWorkspaceState,
   removeRecentWorkspace,
   saveFileViewState,
+  saveKeymap,
   saveWorkspaceState
 } from './state'
 import { recordedSlowOps, startTask, timed } from './tasks'
@@ -55,6 +58,18 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('app:recent-workspaces', (_event, limit: number) => listRecentWorkspaces(limit))
   ipcMain.handle('app:slow-ops', () => recordedSlowOps())
+
+  // keyboard shortcuts (global). Saving rebuilds the native menu so its
+  // accelerators reflect the change immediately.
+  ipcMain.handle('keymap:load', () => loadKeymap())
+  ipcMain.handle('keymap:save', async (_event, config: KeymapConfig) => {
+    await saveKeymap(config)
+    await rebuildApplicationMenu()
+  })
+  // While recording a shortcut, drop the menu so its accelerators don't
+  // intercept the keys being captured (e.g. Cmd+S would otherwise Save).
+  ipcMain.handle('menu:suspend', () => Menu.setApplicationMenu(null))
+  ipcMain.handle('menu:resume', () => rebuildApplicationMenu())
   ipcMain.handle('app:remove-recent-workspace', async (_event, path: string) => {
     await removeRecentWorkspace(path)
     void rebuildApplicationMenu() // Open Recent submenu reflects the removal

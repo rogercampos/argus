@@ -3,7 +3,7 @@ import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { useEffect, useRef } from 'react'
-import { argusKeymap } from '../editorKeymap'
+import { argusKeymap, reconfigureKeymap } from '../editorKeymap'
 import { argusEditorTheme } from '../editorTheme'
 import { languageFor } from '../languages'
 import { applyDiagnosticsToView, cmdClickDefinition, lspExtensions } from '../lsp'
@@ -23,7 +23,7 @@ function buildExtensions(path: string): Extension[] {
 
   return [
     basicSetup,
-    argusKeymap(() => void documents.save(path)),
+    argusKeymap(),
     highlightSelectionMatches(),
     sync,
     ...argusEditorTheme,
@@ -79,6 +79,8 @@ export function EditorPane(): React.JSX.Element {
     if (!doc) return
 
     view.setState(doc.state)
+    // doc.state may have been created with older bindings — re-apply current
+    reconfigureKeymap(view)
     shownPathRef.current = activePath
     applyDiagnosticsToView(view, activePath)
 

@@ -79,6 +79,10 @@ const api: ArgusApi = {
 
   loadWorkspaceState: () => ipcRenderer.invoke('workspace:load-state'),
   saveWorkspaceState: (state) => ipcRenderer.invoke('workspace:save-state', state),
+  loadKeymap: () => ipcRenderer.invoke('keymap:load'),
+  saveKeymap: (config) => ipcRenderer.invoke('keymap:save', config),
+  suspendMenu: () => ipcRenderer.invoke('menu:suspend'),
+  resumeMenu: () => ipcRenderer.invoke('menu:resume'),
   loadFileViewState: (relPath) => ipcRenderer.invoke('workspace:load-file-state', relPath),
   saveFileViewState: (relPath, state) =>
     ipcRenderer.invoke('workspace:save-file-state', relPath, state),

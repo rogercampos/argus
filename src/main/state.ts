@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { defaultKeymapConfig, type KeymapConfig } from '../shared/shortcuts'
 import type { AppState, PersistedWorkspaceState, RecentWorkspaceEntry } from '../shared/types'
 
 /**
@@ -51,6 +52,19 @@ export async function loadAppState(): Promise<AppState | null> {
 
 export async function saveAppState(state: AppState): Promise<void> {
   await writeJsonAtomic(join(stateDir(), 'app.json'), state)
+}
+
+// --- Keyboard shortcuts (global, not per-workspace) ---
+
+export async function loadKeymap(): Promise<KeymapConfig> {
+  const stored = await readJson<KeymapConfig>(join(stateDir(), 'keymap.json'))
+  return stored?.template
+    ? { template: stored.template, overrides: stored.overrides ?? {} }
+    : defaultKeymapConfig()
+}
+
+export async function saveKeymap(config: KeymapConfig): Promise<void> {
+  await writeJsonAtomic(join(stateDir(), 'keymap.json'), config)
 }
 
 // --- Recent workspaces ---

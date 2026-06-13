@@ -23,6 +23,7 @@ import {
   saveWorkspaceState,
   touchRecentWorkspace
 } from '../src/main/state'
+import { defaultKeymapConfig } from '../src/shared/shortcuts'
 import type {
   ArgusApi,
   BackgroundTaskUpdate,
@@ -191,6 +192,10 @@ export function createTestApi(workspacePath: string): TestApi {
     saveWorkspaceState: (state) => saveWorkspaceState(workspacePath, state),
     loadFileViewState: (relPath) => loadFileViewState(workspacePath, relPath),
     saveFileViewState: (relPath, state) => saveFileViewState(workspacePath, relPath, state),
+    loadKeymap: async () => defaultKeymapConfig(),
+    saveKeymap: async () => {},
+    suspendMenu: async () => {},
+    resumeMenu: async () => {},
 
     // repo
     listFiles: (root) => listFiles(root),

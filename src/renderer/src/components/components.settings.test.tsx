@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestApi, installTestApi, type TestApi } from '../../../../test/apiAdapter'
 import { type FixtureRepo, makeFixtureRepo, sampleProjectFiles } from '../../../../test/fixtures'
+import { useKeymapStore } from '../keymapStore'
 import { useWorkspaceStore } from '../store'
 import { SettingsModal } from './SettingsModal'
 
@@ -57,6 +58,42 @@ describe('SettingsModal — General (excluded paths)', () => {
     await waitFor(() =>
       expect(useWorkspaceStore.getState().excludedPaths).toContain('node_modules')
     )
+  })
+})
+
+describe('SettingsModal — Keyboard', () => {
+  it('applies a preset template to all shortcuts', async () => {
+    const user = userEvent.setup()
+    useKeymapStore.getState().setTemplate('rubymine')
+    useWorkspaceStore.setState({ openModal: 'settings' })
+    render(<SettingsModal />)
+
+    await user.click(screen.getByRole('button', { name: 'Keyboard' }))
+    // RubyMine default: Go to File is ⌘⇧O
+    expect(useKeymapStore.getState().bindings['go-to-file']).toBe('Mod+Shift+O')
+
+    await user.click(screen.getByRole('button', { name: 'VS Code' }))
+    expect(useKeymapStore.getState().config.template).toBe('vscode')
+    expect(useKeymapStore.getState().bindings['go-to-file']).toBe('Mod+P')
+    useKeymapStore.getState().setTemplate('rubymine') // reset for other tests
+  })
+
+  it('records a new shortcut by pressing keys', async () => {
+    const user = userEvent.setup()
+    useKeymapStore.getState().setTemplate('rubymine')
+    useWorkspaceStore.setState({ openModal: 'settings' })
+    render(<SettingsModal />)
+    await user.click(screen.getByRole('button', { name: 'Keyboard' }))
+
+    // open the recorder for "Go to Line…" and press a combination
+    const row = screen.getByText('Go to Line…').closest('div') as HTMLElement
+    await user.click(within(row).getByTitle('Click to change'))
+    fireEvent.keyDown(window, { key: 'k', metaKey: true, shiftKey: true })
+
+    await waitFor(() =>
+      expect(useKeymapStore.getState().config.overrides['go-to-line']).toBe('Mod+Shift+K')
+    )
+    useKeymapStore.getState().setTemplate('rubymine') // clears overrides
   })
 })
 

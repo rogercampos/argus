@@ -2,6 +2,7 @@ import { copyLineDown, moveLineDown, moveLineUp, toggleComment } from '@codemirr
 import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect } from 'react'
 import type { MenuCommand } from '../../../shared/types'
+import { useKeymapStore } from '../keymapStore'
 import { gotoDefinition, initLsp } from '../lsp'
 import { useProcStore } from '../procStore'
 import { useSearchStore } from '../searchStore'
@@ -42,6 +43,7 @@ export function WorkspaceShell(): React.JSX.Element {
     storesInitialized = true
     useTasksStore.getState().init()
     useProcStore.getState().init()
+    void useKeymapStore.getState().init()
     initLsp()
     void useWorkspaceStore
       .getState()

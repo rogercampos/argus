@@ -93,6 +93,15 @@ describe('IPC handlers (the renderer-facing contract)', () => {
     })
   })
 
+  it('keymap channels load and save', async () => {
+    expect(await invoke('keymap:load')).toEqual({ template: 'rubymine', overrides: {} })
+    await invoke('keymap:save', { template: 'sublime', overrides: { save: 'Mod+Alt+S' } })
+    expect(await invoke('keymap:load')).toEqual({
+      template: 'sublime',
+      overrides: { save: 'Mod+Alt+S' }
+    })
+  })
+
   it('app channels manage recents and slow ops', async () => {
     await invoke('app:open-workspace', repo.root) // touches recents, focuses existing window
     const recents = (await invoke('app:recent-workspaces', 5)) as Array<{ path: string }>

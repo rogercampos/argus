@@ -110,7 +110,8 @@ describe('application menu (spec 02)', () => {
       if (item.accelerator) accelerators.push(item.accelerator)
     })
     expect(new Set(accelerators).size).toBe(accelerators.length)
-    expect(accelerators).toContain('Cmd+S')
+    // accelerators now come from the keymap (Mod → CmdOrCtrl)
+    expect(accelerators).toContain('CmdOrCtrl+S')
   })
 
   it('lists recent workspaces with home shortened to ~', () => {

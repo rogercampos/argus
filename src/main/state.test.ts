@@ -8,12 +8,14 @@ import {
   listRecentWorkspaces,
   loadAppState,
   loadFileViewState,
+  loadKeymap,
   loadRecentWorkspaces,
   loadWorkspaceState,
   pruneFileViewStates,
   removeRecentWorkspace,
   saveAppState,
   saveFileViewState,
+  saveKeymap,
   saveWorkspaceState,
   touchRecentWorkspace,
   workspaceHash
@@ -112,6 +114,12 @@ describe('state persistence', () => {
 
     await pruneFileViewStates(ws, 3)
     expect(readdirSync(filesDir)).toHaveLength(3) // oldest dropped to the cap
+  })
+
+  it('round-trips the keyboard keymap (default when absent)', async () => {
+    expect(await loadKeymap()).toEqual({ template: 'rubymine', overrides: {} })
+    await saveKeymap({ template: 'vscode', overrides: { save: 'Mod+Alt+S' } })
+    expect(await loadKeymap()).toEqual({ template: 'vscode', overrides: { save: 'Mod+Alt+S' } })
   })
 
   it('workspaceHash is stable and path-distinct', () => {

@@ -6,10 +6,17 @@ import {
   moveLineUp,
   selectParentSyntax
 } from '@codemirror/commands'
-import { EditorSelection, type Extension, Prec } from '@codemirror/state'
-import { type EditorView, keymap } from '@codemirror/view'
+import { Compartment, EditorSelection, type Extension, Prec } from '@codemirror/state'
+import { type Command, type EditorView, type KeyBinding, keymap } from '@codemirror/view'
+import { type ShortcutCommandId, toCodeMirrorKey } from '../../shared/shortcuts'
+import { onKeymapChange, useKeymapStore } from './keymapStore'
+import { activeTabPath, activeView, documents } from './store'
 
-/** Editor keybindings beyond the defaults (spec 14), RubyMine-style. */
+/**
+ * Editor keybindings (spec 14). Keys come from the user's keymap (Settings →
+ * Keyboard); the bindings live in a Compartment so changing a shortcut
+ * re-binds the open editor live without reopening the document.
+ */
 
 interface SelectionShape {
   anchor: number
@@ -87,25 +94,52 @@ function newLineAbove(view: EditorView): boolean {
   return true
 }
 
-export function argusKeymap(onSave: (view: EditorView) => void): Extension {
-  return Prec.high(
-    keymap.of([
-      {
-        key: 'Mod-s',
-        run: (view) => {
-          onSave(view)
-          return true
-        }
-      },
-      { key: 'Mod-d', run: copyLineDown },
-      { key: 'Mod-Backspace', run: deleteLine },
-      { key: 'Alt-Shift-ArrowUp', run: moveLineUp },
-      { key: 'Alt-Shift-ArrowDown', run: moveLineDown },
-      { key: 'Alt-ArrowUp', run: expandSelection },
-      { key: 'Alt-ArrowDown', run: shrinkSelection },
-      { key: 'Mod-Enter', run: newLineBelow },
-      { key: 'Mod-Shift-Enter', run: newLineAbove },
-      indentWithTab
-    ])
-  )
+/** Save the active document (path-independent so the keymap is shared). */
+const saveActive: Command = (): boolean => {
+  const path = activeTabPath()
+  if (path) void documents.save(path)
+  return true
 }
+
+/** Editor commands that participate in the configurable keymap. */
+const EDITOR_RUN: Partial<Record<ShortcutCommandId, Command>> = {
+  save: saveActive,
+  'duplicate-line': copyLineDown,
+  'move-line-up': moveLineUp,
+  'move-line-down': moveLineDown,
+  'delete-line': deleteLine,
+  'new-line-below': newLineBelow,
+  'new-line-above': newLineAbove,
+  'expand-selection': expandSelection,
+  'shrink-selection': shrinkSelection
+}
+
+/** Build the editor keymap from the current effective bindings. */
+function buildEditorKeymap(): Extension {
+  const { bindings } = useKeymapStore.getState()
+  const keys: KeyBinding[] = []
+  for (const [id, run] of Object.entries(EDITOR_RUN) as Array<[ShortcutCommandId, Command]>) {
+    const accel = bindings[id]
+    if (accel) keys.push({ key: toCodeMirrorKey(accel), run })
+  }
+  // Tab-to-indent is fixed (not user-configurable).
+  return Prec.high(keymap.of([...keys, indentWithTab]))
+}
+
+/** Compartment so a shortcut change re-binds the open editor without reopening. */
+const keymapCompartment = new Compartment()
+
+export function argusKeymap(): Extension {
+  return keymapCompartment.of(buildEditorKeymap())
+}
+
+/** Re-apply the current keymap to a view (call after setState or on change). */
+export function reconfigureKeymap(view: EditorView): void {
+  view.dispatch({ effects: keymapCompartment.reconfigure(buildEditorKeymap()) })
+}
+
+// Re-bind the live editor whenever the keymap changes.
+onKeymapChange(() => {
+  const view = activeView()
+  if (view) reconfigureKeymap(view)
+})

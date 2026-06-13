@@ -352,6 +352,11 @@ export interface ArgusApi {
   // per-workspace persisted state (scoped to this window's workspace)
   loadWorkspaceState(): Promise<PersistedWorkspaceState | null>
   saveWorkspaceState(state: PersistedWorkspaceState): Promise<void>
+  loadKeymap(): Promise<import('./shortcuts').KeymapConfig>
+  saveKeymap(config: import('./shortcuts').KeymapConfig): Promise<void>
+  /** suspend/restore the native menu while a shortcut is being recorded */
+  suspendMenu(): Promise<void>
+  resumeMenu(): Promise<void>
   loadFileViewState(relPath: string): Promise<{ cursorOffset: number; scrollTop: number } | null>
   saveFileViewState(
     relPath: string,

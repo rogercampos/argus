@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isRecordingShortcut } from './ui/KeyRecorder'
 import { SectionLabel } from './ui/SectionLabel'
 import { TextInput } from './ui/TextInput'
 
@@ -44,6 +45,9 @@ export function Modal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
+        // while a shortcut is being recorded, Esc cancels the recording (the
+        // recorder handles it) rather than closing the modal
+        if (isRecordingShortcut()) return
         e.stopPropagation()
         onClose()
       }

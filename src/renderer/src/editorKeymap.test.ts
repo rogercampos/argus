@@ -1,23 +1,25 @@
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { argusKeymap } from './editorKeymap'
+import { documents, useWorkspaceStore } from './store'
 
 /**
  * Real CodeMirror views receiving real keydown events. jsdom is not macOS,
- * so CM maps Mod to Ctrl here.
+ * so CM maps Mod to Ctrl here. Keys come from the keymap store's default
+ * (RubyMine) bindings.
  */
 
 const views: EditorView[] = []
 
-function makeView(doc: string, cursor = 0, onSave: () => void = () => {}): EditorView {
+function makeView(doc: string, cursor = 0): EditorView {
   const view = new EditorView({ parent: document.body })
   view.setState(
     EditorState.create({
       doc,
       selection: { anchor: cursor },
-      extensions: [argusKeymap(onSave), javascript()]
+      extensions: [argusKeymap(), javascript()]
     })
   )
   views.push(view)
@@ -46,11 +48,18 @@ afterEach(() => {
 })
 
 describe('editor keymap (spec 14)', () => {
-  it('Mod-s triggers the save callback', () => {
-    let saved = 0
-    const view = makeView('const a = 1\n', 0, () => saved++)
-    key(view, 's', { ctrl: true })
-    expect(saved).toBe(1)
+  it('the save shortcut saves the active document', () => {
+    const view = makeView('const a = 1\n')
+    useWorkspaceStore.setState({
+      tabs: { tabs: [{ path: 'a.ts', external: false }], activeIndex: 0 }
+    })
+    const spy = vi.spyOn(documents, 'save').mockResolvedValue()
+    try {
+      key(view, 's', { ctrl: true })
+      expect(spy).toHaveBeenCalledWith('a.ts')
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('Mod-d duplicates the current line', () => {

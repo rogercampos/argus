@@ -1,16 +1,25 @@
 import { useCallback, useState } from 'react'
+import {
+  SHORTCUT_COMMANDS,
+  SHORTCUT_TEMPLATES,
+  type ShortcutCategory
+} from '../../../shared/shortcuts'
 import { DEFAULT_EXCLUDED_PATHS } from '../../../shared/types'
+import { useKeymapStore } from '../keymapStore'
 import { useWorkspaceStore } from '../store'
 import { Modal, ModalHeader } from './Modal'
 import { Button } from './ui/Button'
 import { EmptyState } from './ui/EmptyState'
 import { IconButton } from './ui/IconButton'
+import { KeyRecorder } from './ui/KeyRecorder'
+import { SectionLabel } from './ui/SectionLabel'
 import { TextInput } from './ui/TextInput'
 import { Toggle } from './ui/Toggle'
 
-type Section = 'general' | 'rails'
+type Section = 'general' | 'keyboard' | 'rails'
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'keyboard', label: 'Keyboard' },
   { id: 'rails', label: 'Rails' }
 ]
 
@@ -41,7 +50,9 @@ export function SettingsModal(): React.JSX.Element {
           ))}
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {section === 'general' ? <GeneralSection /> : <RailsSection />}
+          {section === 'general' && <GeneralSection />}
+          {section === 'keyboard' && <KeyboardSection />}
+          {section === 'rails' && <RailsSection />}
         </div>
       </div>
     </Modal>
@@ -122,6 +133,88 @@ function GeneralSection(): React.JSX.Element {
           Restore defaults
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** Keyboard → preset templates + per-command, press-to-set shortcuts. */
+function KeyboardSection(): React.JSX.Element {
+  const config = useKeymapStore((s) => s.config)
+  const bindings = useKeymapStore((s) => s.bindings)
+  const setTemplate = useKeymapStore((s) => s.setTemplate)
+  const setOverride = useKeymapStore((s) => s.setOverride)
+  const resetOverride = useKeymapStore((s) => s.resetOverride)
+
+  // flag any accelerator bound to more than one command
+  const counts = new Map<string, number>()
+  for (const cmd of SHORTCUT_COMMANDS) {
+    const accel = bindings[cmd.id]
+    if (accel) counts.set(accel, (counts.get(accel) ?? 0) + 1)
+  }
+
+  const categories: ShortcutCategory[] = []
+  for (const cmd of SHORTCUT_COMMANDS) {
+    if (!categories.includes(cmd.category)) categories.push(cmd.category)
+  }
+
+  const overrideCount = Object.keys(config.overrides).length
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="text-chrome text-fg">Preset</div>
+        <p className="mt-0.5 text-label text-fg-dim text-pretty">
+          Apply a complete keymap from a major editor, then tweak individual shortcuts below.
+          Changing a shortcut applies everywhere immediately.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {SHORTCUT_TEMPLATES.map((t) => (
+            <Button
+              key={t.id}
+              size="sm"
+              variant={config.template === t.id ? 'primary' : 'secondary'}
+              onClick={() => setTemplate(t.id)}
+            >
+              {t.label}
+            </Button>
+          ))}
+        </div>
+        {overrideCount > 0 && (
+          <p className="mt-1 text-label text-fg-dim">
+            {overrideCount} custom override{overrideCount === 1 ? '' : 's'} on top of the preset.
+          </p>
+        )}
+      </div>
+
+      {categories.map((category) => (
+        <div key={category} className="flex flex-col gap-0.5">
+          <SectionLabel className="pb-0.5">{category}</SectionLabel>
+          {SHORTCUT_COMMANDS.filter((c) => c.category === category).map((cmd) => {
+            const accel = bindings[cmd.id]
+            const overridden = config.overrides[cmd.id] !== undefined
+            const conflict = accel ? (counts.get(accel) ?? 0) > 1 : false
+            return (
+              <div key={cmd.id} className="flex items-center gap-2 py-0.5">
+                <span className="min-w-0 flex-1 truncate text-chrome text-fg">{cmd.label}</span>
+                {overridden && (
+                  <IconButton
+                    title="Reset to preset"
+                    onClick={() => resetOverride(cmd.id)}
+                    className="size-6"
+                  >
+                    ↺
+                  </IconButton>
+                )}
+                <KeyRecorder
+                  value={accel}
+                  conflict={conflict}
+                  onCapture={(a) => setOverride(cmd.id, a)}
+                />
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
