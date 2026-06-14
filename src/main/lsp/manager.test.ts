@@ -161,6 +161,14 @@ describe('LSP manager crash handling', () => {
       await vi.waitFor(() => expect(liveProcesses().filter((p) => p.kind === 'lsp')).toEqual([]), {
         timeout: 10_000
       })
+      // the unexpected exit is surfaced to the window as a copyable crash card
+      const crash = stub.webContents.sent
+        .filter((m) => m.channel === 'app:crash')
+        .map((m) => m.args[0] as { origin: string; title: string; summary: string })
+        .find((c) => c.origin === 'lsp')
+      expect(crash).toBeDefined()
+      expect(crash?.title).toBe('Language server crashed')
+      expect(crash?.summary).toContain('exited unexpectedly with code 1')
       // requests after the crash degrade gracefully instead of throwing
       expect(await manager.hover('boom.ts', 0, 0)).toBeNull()
     } finally {

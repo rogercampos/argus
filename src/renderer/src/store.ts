@@ -2,6 +2,7 @@ import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { create } from 'zustand'
 import type {
+  CrashReport,
   GitState,
   GitStatusEntry,
   LspLocation,
@@ -77,6 +78,9 @@ interface WorkspaceStore {
   /** transient, auto-dismissing status message (e.g. "No definition found") */
   notice: string | null
   showNotice: (message: string) => void
+  /** surfaced main/child-process crashes, newest first (spec: crash cards) */
+  crashes: CrashReport[]
+  dismissCrash: (id: string) => void
 }
 
 export const documents = new DocumentManager(
@@ -254,6 +258,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   projects: [],
   definitionChoices: null,
   schemaInfo: null,
+  crashes: [],
 
   init: async () => {
     const root = window.api.windowInit.workspacePath
@@ -320,6 +325,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       set({
         gitStatus: [...statusMap.entries()].map(([path, status]) => ({ path, status }))
       })
+    })
+
+    // Main/child-process crashes → copyable cards (dedupe + cap in mergeCrash).
+    window.api.onCrash((report) => {
+      set({ crashes: mergeCrash(get().crashes, report) })
     })
 
     window.api.onWatchEvents((events) => {
@@ -524,8 +534,30 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     setTimeout(() => {
       if (get().notice === message) set({ notice: null })
     }, 2500)
-  }
+  },
+
+  dismissCrash: (id) => set({ crashes: get().crashes.filter((c) => c.id !== id) })
 }))
+
+export const MAX_CRASH_CARDS = 5
+
+/** Signature for collapsing repeats of the same crash while a card is still shown. */
+function crashSignature(report: CrashReport): string {
+  return `${report.origin}|${report.title}|${report.label}|${report.summary}|${report.detail}`
+}
+
+/**
+ * Prepend `report` (newest first), skipping an identical crash that's still on
+ * screen so a crash loop can't spam, and capping the visible stack. Pure.
+ */
+export function mergeCrash(
+  current: CrashReport[],
+  report: CrashReport,
+  max = MAX_CRASH_CARDS
+): CrashReport[] {
+  if (current.some((c) => crashSignature(c) === crashSignature(report))) return current
+  return [report, ...current].slice(0, max)
+}
 
 /** The currently mounted EditorView, registered by EditorPane. */
 let currentView: import('@codemirror/view').EditorView | null = null

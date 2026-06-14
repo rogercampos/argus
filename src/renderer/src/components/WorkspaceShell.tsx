@@ -8,6 +8,7 @@ import { useProcStore } from '../procStore'
 import { useSearchStore } from '../searchStore'
 import { activeTabPath, activeView, documents, useWorkspaceStore } from '../store'
 import { useTasksStore } from '../tasksStore'
+import { CrashOverlay } from './CrashOverlay'
 import { DefinitionPicker } from './DefinitionPicker'
 import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
@@ -232,6 +233,7 @@ export function WorkspaceShell(): React.JSX.Element {
               </Toast>
             )}
             <EditorPane />
+            <CrashOverlay />
           </main>
           {panels.rightVisible && (
             <>

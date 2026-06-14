@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import type { GitState, GitStatusEntry } from '../shared/types'
+import { reportCrash } from './crashReporter'
 import { trackedExecFile } from './procRegistry'
 
 const MAX_BUFFER = 512 * 1024 * 1024
@@ -95,6 +96,8 @@ export class GitMonitor {
   private isRepo = false
   private disposed = false
   private scanning = false
+  /** last reported failure signature, so a persistent failure reports once per streak */
+  private lastErrorSig: string | null = null
 
   constructor(
     private root: string,
@@ -218,12 +221,37 @@ export class GitMonitor {
         'git',
         args,
         { maxBuffer: MAX_BUFFER },
-        { kind: 'git', label: 'git status', windowId: this.windowId }
+        { kind: 'git', label: 'git status', windowId: this.windowId, selfReportsErrors: true }
       )
+      this.lastErrorSig = null // a success ends any failure streak
       return parsePorcelain(stdout)
-    } catch {
+    } catch (error) {
+      this.reportFailure('git status', error)
       return null
     }
+  }
+
+  /**
+   * Surface a git failure as a crash card, once per streak: a repo with (say)
+   * dubious ownership fails on every rescan, but the user only needs telling
+   * once until the error changes or a scan succeeds.
+   */
+  private reportFailure(command: string, error: unknown): void {
+    const err = error as { message?: string; code?: number; stderr?: string; stack?: string }
+    const stderr = (err.stderr ?? '').trim()
+    const message = err.message ?? String(error)
+    const summary = stderr.split('\n')[0] || message.split('\n')[0] || 'command failed'
+    const sig = `${command}|${summary}`
+    if (sig === this.lastErrorSig) return
+    this.lastErrorSig = sig
+    reportCrash({
+      origin: 'git',
+      title: 'Git command failed',
+      label: command,
+      summary,
+      detail: stderr || err.stack || message,
+      windowId: this.windowId
+    })
   }
 
   private async fullRescan(): Promise<void> {

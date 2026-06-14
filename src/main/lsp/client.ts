@@ -7,12 +7,16 @@ import {
   StreamMessageReader,
   StreamMessageWriter
 } from 'vscode-languageserver-protocol/node'
+import { reportCrash } from '../crashReporter'
 import { trackedSpawn } from '../procRegistry'
 
 /**
  * One running language server instance: process + jsonrpc connection +
  * lifecycle (spec 08).
  */
+
+/** Keep the last slice of a server's stderr so a crash can be surfaced. */
+const MAX_STDERR = 16 * 1024
 
 /** A server that never answers `initialize` must not leave the request — and
  * every request awaiting the instance — pending forever (spec 08). */
@@ -57,6 +61,10 @@ export class LspInstance {
   state: 'starting' | 'running' | 'dead' = 'starting'
   readonly name: string
   readonly root: string
+  /** rolling tail of stderr, surfaced if the server crashes */
+  private stderrTail = ''
+  /** set when we deliberately kill the server, so its exit isn't reported as a crash */
+  private killed = false
 
   constructor(private options: LspInstanceOptions) {
     this.name = options.name
@@ -71,8 +79,10 @@ export class LspInstance {
         windowId: options.windowId
       }
     )
-    this.child.stderr?.on('data', () => {}) // drain
-    this.child.on('exit', () => {
+    this.child.stderr?.on('data', (chunk: Buffer) => {
+      this.stderrTail = (this.stderrTail + chunk.toString()).slice(-MAX_STDERR)
+    })
+    this.child.on('exit', (code, signal) => {
       this.state = 'dead'
       // dispose rejects in-flight sendRequest promises; without it a crash
       // mid-request leaves callers awaiting forever
@@ -80,6 +90,19 @@ export class LspInstance {
         this.connection.dispose()
       } catch {
         // already disposed
+      }
+      // An exit we didn't ask for is a crash: surface its stderr (spec: crashes).
+      if (!this.killed) {
+        reportCrash({
+          origin: 'lsp',
+          title: 'Language server crashed',
+          label: `${this.name} (${basename(this.root)})`,
+          summary: signal
+            ? `killed by signal ${signal} (code ${code ?? 'null'})`
+            : `exited unexpectedly with code ${code ?? 'null'}`,
+          detail: this.stderrTail,
+          windowId: this.options.windowId
+        })
       }
       options.onExit()
     })
@@ -179,6 +202,7 @@ export class LspInstance {
   }
 
   kill(): void {
+    this.killed = true // a deliberate kill must not be reported as a crash
     this.state = 'dead'
     try {
       this.connection.dispose()

@@ -27,6 +27,7 @@ import { defaultKeymapConfig } from '../src/shared/shortcuts'
 import type {
   ArgusApi,
   BackgroundTaskUpdate,
+  CrashReport,
   GitState,
   GitStatusDiff,
   LspCompletionItem,
@@ -101,6 +102,7 @@ export interface TestApi {
   emitGitStatusDiff(diff: GitStatusDiff): void
   emitTaskUpdate(update: BackgroundTaskUpdate): void
   emitProcStats(snapshot: ProcStatsSnapshot): void
+  emitCrash(report: CrashReport): void
   emitLspDiagnostics(payload: { path: string; diagnostics: LspDiagnostic[] }): void
   emitLspProjects(projects: ProjectInfo[]): void
   emitSearchProgress(searchId: number, progress: SearchProgress): void
@@ -132,6 +134,7 @@ export function createTestApi(workspacePath: string): TestApi {
   const gitStatusDiff = new Channel<[GitStatusDiff]>()
   const taskUpdates = new Channel<[BackgroundTaskUpdate]>()
   const procStats = new Channel<[ProcStatsSnapshot]>()
+  const crashes = new Channel<[CrashReport]>()
   const lspDiagnostics = new Channel<[{ path: string; diagnostics: LspDiagnostic[] }]>()
   const lspProjects = new Channel<[ProjectInfo[]]>()
   const searchProgress = new Channel<[number, SearchProgress]>()
@@ -186,6 +189,7 @@ export function createTestApi(workspacePath: string): TestApi {
     onGitStatusDiff: (handler) => gitStatusDiff.subscribe(handler),
     onTaskUpdate: (handler) => taskUpdates.subscribe(handler),
     onProcStats: (handler) => procStats.subscribe(handler),
+    onCrash: (handler) => crashes.subscribe(handler),
 
     // per-workspace persisted state
     loadWorkspaceState: () => loadWorkspaceState(workspacePath),
@@ -236,6 +240,7 @@ export function createTestApi(workspacePath: string): TestApi {
     emitGitStatusDiff: (diff) => gitStatusDiff.emit(diff),
     emitTaskUpdate: (update) => taskUpdates.emit(update),
     emitProcStats: (snapshot) => procStats.emit(snapshot),
+    emitCrash: (report) => crashes.emit(report),
     emitLspDiagnostics: (payload) => lspDiagnostics.emit(payload),
     emitLspProjects: (projects) => lspProjects.emit(projects),
     emitSearchProgress: (searchId, progress) => searchProgress.emit(searchId, progress),

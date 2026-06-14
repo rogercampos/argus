@@ -19,6 +19,8 @@ export interface TrackedMeta {
   label: string
   /** owning workspace window; omitted = visible in every window */
   windowId?: number
+  /** the spawn site reports its own failures, so skip the central handler */
+  selfReportsErrors?: boolean
 }
 
 export interface LiveProcess extends TrackedMeta {
@@ -38,6 +40,17 @@ const activity = new Map<ProcKind, { totalCount: number; recent: { at: number; m
 export function onRegistryChange(listener: () => void): () => void {
   changeListeners.add(listener)
   return () => changeListeners.delete(listener)
+}
+
+/**
+ * Reporter for spawn-level failures (ENOENT, EACCES, …) of any tracked
+ * process. Injected from index.ts so this module stays free of an Electron
+ * dependency (it is also imported by pure unit tests).
+ */
+type SpawnErrorListener = (meta: TrackedMeta, error: Error) => void
+let spawnErrorListener: SpawnErrorListener | null = null
+export function setSpawnErrorListener(listener: SpawnErrorListener): void {
+  spawnErrorListener = listener
 }
 
 export function liveProcesses(): LiveProcess[] {
@@ -78,8 +91,13 @@ function recordActivity(kind: ProcKind, ms: number): void {
 }
 
 function track(child: ChildProcess, meta: TrackedMeta): void {
+  // A spawn-level failure (ENOENT, EACCES, …) fires 'error' — possibly before
+  // a pid is ever assigned — so report it regardless of registration below.
+  child.once('error', (error: Error) => {
+    if (!meta.selfReportsErrors) spawnErrorListener?.(meta, error)
+  })
   const pid = child.pid
-  if (pid === undefined) return // spawn failed; the caller sees the 'error' event
+  if (pid === undefined) return // spawn failed synchronously; only the error report applies
   const entry: LiveProcess = { ...meta, id: nextId++, pid, startedAt: Date.now() }
   live.set(entry.id, entry)
   for (const listener of changeListeners) listener()

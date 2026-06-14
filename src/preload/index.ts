@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ArgusApi,
   BackgroundTaskUpdate,
+  CrashReport,
   GitState,
   GitStatusDiff,
   MenuCommand,
@@ -70,6 +71,7 @@ const api: ArgusApi = {
   onGitStatusDiff: makeListener<GitStatusDiff>('git:status-diff'),
   onTaskUpdate: makeListener<BackgroundTaskUpdate>('task:update'),
   onProcStats: makeListener<ProcStatsSnapshot>('proc:stats'),
+  onCrash: makeListener<CrashReport>('app:crash'),
   onWatchEvents: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, events: WatchEvent[]): void =>
       handler(events)

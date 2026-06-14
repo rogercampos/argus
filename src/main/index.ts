@@ -1,8 +1,10 @@
 import { existsSync, statSync } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { app } from 'electron'
+import { reportCrash } from './crashReporter'
 import { registerIpcHandlers } from './ipc'
 import { rebuildApplicationMenu } from './menu'
+import { setSpawnErrorListener } from './procRegistry'
 import { startProcStats } from './procStats'
 import { initStateDir } from './state'
 import {
@@ -12,6 +14,63 @@ import {
   persistAppState,
   restoreSession
 } from './windows'
+
+// --- Crash surfacing (spec: see crashReporter.ts) ---------------------------
+// Installed before anything else so the earliest failures are still caught.
+process.on('uncaughtException', (error) => {
+  reportCrash({
+    origin: 'main',
+    title: 'Main process error',
+    summary: `Uncaught exception: ${error.message}`,
+    detail: error.stack ?? String(error)
+  })
+})
+process.on('unhandledRejection', (reason) => {
+  const error = reason instanceof Error ? reason : undefined
+  reportCrash({
+    origin: 'main',
+    title: 'Main process error',
+    summary: `Unhandled promise rejection: ${error?.message ?? String(reason)}`,
+    detail: error?.stack ?? String(reason)
+  })
+})
+app.on('render-process-gone', (_event, _webContents, details) => {
+  // The dead renderer can't show this, so broadcast to every window.
+  reportCrash({
+    origin: 'renderer',
+    title: 'Window crashed',
+    summary: `Renderer process gone: ${details.reason} (exit code ${details.exitCode})`,
+    detail: `reason: ${details.reason}\nexitCode: ${details.exitCode}`
+  })
+})
+app.on('child-process-gone', (_event, details) => {
+  if (details.reason === 'clean-exit') return
+  reportCrash({
+    origin: 'main',
+    title: 'Electron child process crashed',
+    label: details.name ?? details.type,
+    summary: `${details.type} ${details.reason} (exit code ${details.exitCode})`,
+    detail: `type: ${details.type}\nname: ${details.name ?? '(unnamed)'}\nreason: ${details.reason}\nexitCode: ${details.exitCode}`
+  })
+})
+const SPAWN_KIND_TITLE: Record<string, string> = {
+  lsp: 'Language server failed to start',
+  git: 'Git command failed to start',
+  search: 'Search process failed to start',
+  semgrep: 'Semgrep failed to start',
+  install: 'Installer failed to start',
+  'shell-env': 'Shell environment lookup failed'
+}
+setSpawnErrorListener((meta, error) => {
+  reportCrash({
+    origin: meta.kind,
+    title: SPAWN_KIND_TITLE[meta.kind] ?? 'Process failed to start',
+    label: meta.label,
+    summary: error.message,
+    detail: error.stack ?? error.message,
+    windowId: meta.windowId
+  })
+})
 
 // Test/dev isolation: point all persisted state somewhere else (E2E runs).
 if (process.env.ARGUS_USER_DATA) {

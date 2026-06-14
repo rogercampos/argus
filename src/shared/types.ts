@@ -223,6 +223,28 @@ export interface ProcStatsSnapshot {
   totals: { cpu: number; memBytes: number; count: number }
 }
 
+// --- Crash / error reporting ---
+
+/**
+ * A surfaced crash from the main process or any child process (LSP server,
+ * git, ripgrep, …). `detail` is the full, copyable output (stack trace or
+ * captured stderr), capped to a sane size in the main process.
+ */
+export interface CrashReport {
+  /** unique per report; used to key and dedupe in the UI */
+  id: string
+  at: number
+  origin: ProcKind | 'main' | 'renderer'
+  /** category headline, e.g. "Language server crashed" */
+  title: string
+  /** which process, e.g. "vtsls (myrepo)" or "git status"; empty for the main process */
+  label: string
+  /** one-line cause, e.g. "killed by signal SIGSEGV (code null)" */
+  summary: string
+  /** full copyable output: stack trace or captured stderr */
+  detail: string
+}
+
 // --- File watching ---
 
 export interface WatchEvent {
@@ -348,6 +370,8 @@ export interface ArgusApi {
   onGitStatusDiff(handler: (diff: GitStatusDiff) => void): () => void
   onTaskUpdate(handler: (update: BackgroundTaskUpdate) => void): () => void
   onProcStats(handler: (snapshot: ProcStatsSnapshot) => void): () => void
+  /** main- and child-process crashes, surfaced as copyable cards */
+  onCrash(handler: (report: CrashReport) => void): () => void
 
   // per-workspace persisted state (scoped to this window's workspace)
   loadWorkspaceState(): Promise<PersistedWorkspaceState | null>

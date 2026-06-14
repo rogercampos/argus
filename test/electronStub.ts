@@ -62,6 +62,10 @@ export class StubBrowserWindow extends EventEmitter {
     return webContents.browserWindow.destroyed ? null : webContents.browserWindow
   }
 
+  static fromId(id: number): StubBrowserWindow | null {
+    return allWindows.find((w) => w.id === id && !w.destroyed) ?? null
+  }
+
   loadURL(url: string): void {
     this.loaded = { kind: 'url', target: url }
   }
