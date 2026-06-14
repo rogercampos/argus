@@ -71,7 +71,12 @@ export function DefinitionPicker({ choices }: { choices: LspLocation[] }): React
               index === selected ? 'bg-selection' : 'hover:bg-hover'
             }`}
           >
-            <span className="truncate font-mono text-chrome">{shortenRubyPath(loc.path)}</span>
+            <span
+              className="truncate font-mono text-chrome"
+              style={{ direction: 'rtl', textAlign: 'left' }}
+            >
+              {`‎${shortenRubyPath(loc.path)}`}
+            </span>
             <span className="ml-auto shrink-0 font-mono text-label text-fg-dim">
               :{loc.line + 1}
             </span>
