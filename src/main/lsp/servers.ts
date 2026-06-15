@@ -20,6 +20,9 @@ export interface ServerConfig {
   initializationOptions?: (projectRoot: string) => Promise<unknown>
   /** workspace/configuration + didChangeConfiguration payload */
   settings?: (projectRoot: string, ruby: { excludeGems: boolean }) => Promise<unknown>
+  /** basenames whose external change should restart this server, e.g. a manifest
+   * the server only reads at boot. Most servers reload live and need none. */
+  restartOnChange?: readonly string[]
 }
 
 export async function parseGemfileLockGems(projectRoot: string): Promise<string[]> {
@@ -104,6 +107,9 @@ export function buildServerRegistry(env: Record<string, string>): ServerConfig[]
       languages: ['ruby'],
       projectKind: 'ruby',
       perProjectInstance: false,
+      // ruby-lsp composes a bundle and indexes gems at boot, so a lockfile change
+      // must restart it. Other servers reload dependency changes live.
+      restartOnChange: ['Gemfile.lock', 'gems.locked'],
       command: async () => {
         const bin = await binaryOnPath(env, 'ruby-lsp')
         return bin ? { cmd: bin, args: [] } : null

@@ -7,7 +7,8 @@ import type {
   LspDiagnostic,
   LspHoverResult,
   LspLocation,
-  LspSymbol
+  LspSymbol,
+  WatchEvent
 } from '../../shared/types'
 import { trackedSpawn } from '../procRegistry'
 import { schemaForModel } from '../schema'
@@ -17,6 +18,7 @@ import { LspInstance } from './client'
 import { extractToolVersions, resolveShellEnv } from './env'
 import { ProjectRegistry } from './projects'
 import { buildServerRegistry, languageIdForPath, type ServerConfig } from './servers'
+import { globMatches } from './watchGlob'
 
 /**
  * Per-window LSP manager (spec 08): project-scoped server instances,
@@ -45,6 +47,9 @@ export class LspManager {
   private instances = new Map<string, Promise<LspInstance | null>>()
   /** server key → timestamps of recent failed starts/crashes (sliding window) */
   private restarts = new Map<string, number[]>()
+  /** server keys we are deliberately restarting (e.g. on a Gemfile.lock change),
+   * so their exit respawns instead of counting as a crash */
+  private intentionalRestarts = new Set<string>()
   private installing = new Set<string>()
   private openDocs = new Map<string, OpenDoc>()
   /** path → source → diagnostics */
@@ -71,6 +76,61 @@ export class LspManager {
   noteFileSaved(relPath: string): void {
     if (LSP_DISABLED) return
     this.semgrep.scan(relPath)
+  }
+
+  /**
+   * React to external file changes reported by the workspace watcher (git
+   * checkout, edits from other tools, dependency installs). This is generic
+   * across every language server:
+   *  - a change to a basename in a server's `restartOnChange` (e.g. ruby-lsp's
+   *    Gemfile.lock) restarts that server, so it recomposes/re-indexes at boot,
+   *  - every other change is forwarded as `workspace/didChangeWatchedFiles` to
+   *    each running server, filtered to the glob patterns that server actually
+   *    registered — so vtsls gets its TS/JS files, ruby-lsp its `.rb` files, etc.
+   *
+   * Files open in the editor are kept in sync by didChange; servers ignore
+   * watched-file notifications for URIs they are already managing.
+   */
+  async handleWatchedFileChanges(changes: WatchEvent[]): Promise<void> {
+    if (this.disposed || LSP_DISABLED || changes.length === 0) return
+
+    const resolved = changes.map((change) => ({
+      base: change.relPath.split('/').pop() ?? '',
+      abs: this.abs(change.relPath),
+      uri: this.uri(change.relPath),
+      type: fileChangeType(change.type)
+    }))
+
+    for (const [key, promise] of [...this.instances]) {
+      const instance = await promise
+      if (instance?.state !== 'running') continue
+
+      // Restart triggers (e.g. a lockfile) take precedence over forwarding: a
+      // restart rebuilds the whole index, so forwarding the same change is moot.
+      const triggersRestart = resolved.some(
+        (c) => instance.restartOnChange.includes(c.base) && isWithin(c.abs, instance.root)
+      )
+      if (triggersRestart) {
+        this.restartInstance(key)
+        continue
+      }
+
+      const relevant = resolved.filter((c) =>
+        instance.watchedGlobs.some((glob) => globMatches(c.abs, instance.root, glob))
+      )
+      if (relevant.length === 0) continue
+      instance.notify('workspace/didChangeWatchedFiles', {
+        changes: relevant.map((c) => ({ uri: c.uri, type: c.type }))
+      })
+    }
+  }
+
+  /** Deliberately stop a server so it respawns (onExit), without charging the
+   * failure budget. Used for restart-on-change (e.g. a Gemfile.lock change). */
+  private restartInstance(key: string): void {
+    this.intentionalRestarts.add(key)
+    this.restarts.delete(key)
+    void this.instances.get(key)?.then((instance) => instance?.kill())
   }
 
   dispose(): void {
@@ -207,13 +267,24 @@ export class LspManager {
         cwd: projectRoot,
         env,
         windowId: this.window.id,
+        restartOnChange: config.restartOnChange,
         initializationOptions: await config.initializationOptions?.(projectRoot),
         settings: await config.settings?.(projectRoot, { excludeGems: true }),
         onDiagnostics: (uri, diagnostics) =>
           this.acceptDiagnostics(this.relFromUri(uri), config.name, diagnostics),
         onExit: () => {
-          noteFailure()
           this.instances.delete(key)
+          if (this.intentionalRestarts.delete(key)) {
+            // A deliberate restart (e.g. Gemfile.lock changed): respawn without
+            // charging the failure budget. startInstance re-opens the open docs.
+            if (!this.disposed) {
+              const respawned = this.startInstance(config, projectRoot, key)
+              this.instances.set(key, respawned)
+              void respawned
+            }
+          } else {
+            noteFailure()
+          }
         }
       })
       await instance.initialize()
@@ -520,7 +591,25 @@ export class LspManager {
   }
 }
 
+/** LSP FileChangeType (spec): Created = 1, Changed = 2, Deleted = 3. */
+function fileChangeType(type: WatchEvent['type']): number {
+  if (type === 'create') return 1
+  if (type === 'delete') return 3
+  return 2
+}
+
+/** True when `absPath` is `root` itself or lives inside it. */
+function isWithin(absPath: string, root: string): boolean {
+  return absPath === root || absPath.startsWith(`${root}/`)
+}
+
 const managers = new Map<number, LspManager>()
+
+/** The manager for a window if one already exists — never creates one. Used by
+ * the file watcher, which must not spin up a manager just because a file changed. */
+export function existingLspManagerFor(window: BrowserWindow): LspManager | null {
+  return managers.get(window.id) ?? null
+}
 
 export function lspManagerFor(window: BrowserWindow, root: string): LspManager | null {
   if (window.isDestroyed()) return null // late IPC must not resurrect a manager

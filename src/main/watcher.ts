@@ -4,6 +4,7 @@ import watcher, { type AsyncSubscription } from '@parcel/watcher'
 import type { BrowserWindow } from 'electron'
 import type { WatchEvent } from '../shared/types'
 import { gitMonitorFor } from './git'
+import { existingLspManagerFor } from './lsp/manager'
 
 /**
  * Workspace file watching (spec 06/07): keeps open documents and the file
@@ -35,6 +36,9 @@ export async function startWatching(window: BrowserWindow, root: string): Promis
       gitMonitorFor(window.id)?.noteChanges(allRelPaths)
       if (mapped.length > 0) {
         window.webContents.send('watch:events', mapped)
+        // Keep language servers in sync with external changes (git checkout, edits
+        // from other tools). Only an already-running manager is notified.
+        void existingLspManagerFor(window)?.handleWatchedFileChanges(mapped)
       }
     },
     { ignore: ['node_modules', '.git/objects'] }

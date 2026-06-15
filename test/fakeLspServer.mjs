@@ -58,6 +58,8 @@ let rootUri = 'file:///'
 
 function handle(message) {
   const { id, method, params } = message
+  // Responses (e.g. to our client/registerCapability request) have no method.
+  if (!method) return
   switch (method) {
     case 'initialize':
       // FAKE_LSP_HANG_INIT=1 simulates a server that spawns but never completes
@@ -74,6 +76,28 @@ function handle(message) {
           diagnosticProvider: { interFileDependencies: false, workspaceDiagnostics: false }
         }
       })
+      // Like a real server (e.g. ruby-lsp), only register file watching when the
+      // client advertised support for it.
+      if (params.capabilities?.workspace?.didChangeWatchedFiles) {
+        send({
+          jsonrpc: '2.0',
+          id: 'reg-watched-files',
+          method: 'client/registerCapability',
+          params: {
+            registrations: [
+              {
+                id: 'watch-files',
+                method: 'workspace/didChangeWatchedFiles',
+                // two globs, to prove forwarding is driven by what the server
+                // registered (not hard-coded to one language)
+                registerOptions: {
+                  watchers: [{ globPattern: '**/*.rb' }, { globPattern: '**/*.ts' }]
+                }
+              }
+            ]
+          }
+        })
+      }
       break
     case 'textDocument/didOpen':
       if (params.textDocument.text.includes('CRASH')) process.exit(1)
@@ -81,6 +105,26 @@ function handle(message) {
       break
     case 'textDocument/didChange':
       publishDiagnostics(params.textDocument.uri, params.contentChanges[0].text)
+      break
+    case 'workspace/didChangeWatchedFiles':
+      // echo each change back as a diagnostic so tests can observe what arrived
+      for (const change of params.changes) {
+        send({
+          jsonrpc: '2.0',
+          method: 'textDocument/publishDiagnostics',
+          params: {
+            uri: change.uri,
+            diagnostics: [
+              {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                severity: 4,
+                message: `watched:${change.type}`,
+                source: 'fake-watch'
+              }
+            ]
+          }
+        })
+      }
       break
     case 'textDocument/didClose':
       send({

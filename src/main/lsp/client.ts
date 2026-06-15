@@ -9,6 +9,7 @@ import {
 } from 'vscode-languageserver-protocol/node'
 import { reportCrash } from '../crashReporter'
 import { trackedSpawn } from '../procRegistry'
+import type { LspGlob } from './watchGlob'
 
 /**
  * One running language server instance: process + jsonrpc connection +
@@ -33,6 +34,8 @@ export interface LspInstanceOptions {
   settings?: unknown
   /** override the initialize handshake timeout (tests use a short one) */
   initializeTimeoutMs?: number
+  /** basenames whose external change should restart this server (e.g. a manifest) */
+  restartOnChange?: readonly string[]
   onDiagnostics: (uri: string, diagnostics: Diagnostic[]) => void
   onExit: () => void
 }
@@ -61,6 +64,11 @@ export class LspInstance {
   state: 'starting' | 'running' | 'dead' = 'starting'
   readonly name: string
   readonly root: string
+  /** basenames whose external change restarts this server */
+  readonly restartOnChange: readonly string[]
+  /** glob patterns the server dynamically registered for file watching; we only
+   * forward `didChangeWatchedFiles` for files matching one of them */
+  watchedGlobs: LspGlob[] = []
   /** rolling tail of stderr, surfaced if the server crashes */
   private stderrTail = ''
   /** set when we deliberately kill the server, so its exit isn't reported as a crash */
@@ -69,6 +77,7 @@ export class LspInstance {
   constructor(private options: LspInstanceOptions) {
     this.name = options.name
     this.root = options.cwd
+    this.restartOnChange = options.restartOnChange ?? []
     this.child = trackedSpawn(
       options.cmd,
       options.args,
@@ -126,7 +135,23 @@ export class LspInstance {
     this.connection.onRequest('workspace/configuration', (params: { items: unknown[] }) =>
       params.items.map(() => this.options.settings ?? {})
     )
-    this.connection.onRequest('client/registerCapability', () => null)
+    this.connection.onRequest(
+      'client/registerCapability',
+      (params: {
+        registrations?: Array<{
+          method?: string
+          registerOptions?: { watchers?: Array<{ globPattern?: LspGlob }> }
+        }>
+      }) => {
+        for (const reg of params.registrations ?? []) {
+          if (reg.method !== 'workspace/didChangeWatchedFiles') continue
+          for (const watcher of reg.registerOptions?.watchers ?? []) {
+            if (watcher.globPattern !== undefined) this.watchedGlobs.push(watcher.globPattern)
+          }
+        }
+        return null
+      }
+    )
     this.connection.onRequest('window/workDoneProgress/create', () => null)
     this.connection.listen()
   }
@@ -159,7 +184,8 @@ export class LspInstance {
             workspace: {
               configuration: true,
               workspaceFolders: true,
-              didChangeConfiguration: {}
+              didChangeConfiguration: {},
+              didChangeWatchedFiles: { dynamicRegistration: true }
             },
             window: { workDoneProgress: false }
           }
@@ -195,7 +221,11 @@ export class LspInstance {
   notify(method: string, params: unknown): void {
     if (this.state === 'dead') return
     try {
-      void this.connection.sendNotification(method, params)
+      // The write can fail synchronously (disposed connection) or reject later
+      // (stream destroyed mid-flight, e.g. during a restart). Both are moot for a
+      // fire-and-forget notification, so swallow them rather than leak an
+      // unhandled rejection.
+      void Promise.resolve(this.connection.sendNotification(method, params)).catch(() => {})
     } catch {
       // connection closed mid-flight; the notification is moot
     }

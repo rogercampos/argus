@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { electronStub, StubBrowserWindow } from '../../../test/electronStub'
 import type { LspDiagnostic } from '../../shared/types'
 import { liveProcesses } from '../procRegistry'
@@ -236,5 +236,107 @@ describe('LSP manager server install (spec 08)', () => {
       manager.dispose()
       rmSync(root, { recursive: true, force: true })
     }
+  }, 30_000)
+})
+
+describe('LSP manager watched-file changes (external edits / git checkout / bundle changes)', () => {
+  let root: string
+  let stub: StubBrowserWindow
+  let manager: LspManager
+
+  // A fake server posing as ruby-lsp: it registers **/*.rb and **/*.ts watchers
+  // (see fakeLspServer.mjs) and declares a lockfile restart trigger.
+  function rubyRegistry(): ServerConfig[] {
+    return [
+      {
+        name: 'ruby-lsp',
+        languages: ['ruby'],
+        projectKind: 'ruby',
+        perProjectInstance: false,
+        restartOnChange: ['Gemfile.lock', 'gems.locked'],
+        command: async () => ({ cmd: process.execPath, args: [FAKE_SERVER] })
+      }
+    ]
+  }
+
+  function diagnosticsFor(path: string): LspDiagnostic[][] {
+    return stub.webContents.sent
+      .filter((m) => m.channel === 'lsp:diagnostics')
+      .map((m) => m.args[0] as { path: string; diagnostics: LspDiagnostic[] })
+      .filter((p) => p.path === path)
+      .map((p) => p.diagnostics)
+  }
+
+  function liveLspIds(): number[] {
+    return liveProcesses()
+      .filter((p) => p.kind === 'lsp')
+      .map((p) => p.id)
+  }
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'argus-lsp-watch-')))
+    writeFileSync(join(root, 'Gemfile'), "source 'https://rubygems.org'\n")
+    mkdirSync(join(root, 'lib'))
+    writeFileSync(join(root, 'lib/a.rb'), 'class A\nend\n')
+    stub = new StubBrowserWindow()
+    manager = new LspManager(root, stub as unknown as BrowserWindow, rubyRegistry)
+  })
+
+  afterEach(() => {
+    manager.dispose()
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('forwards changes matching a registered glob and ignores the rest', async () => {
+    await manager.didOpen('lib/a.rb', 'class A\nend\n') // boots the fake server
+
+    // The server registers its watchers right after initialize; retry until the
+    // registration has landed and the echoed diagnostics come back.
+    await vi.waitFor(
+      async () => {
+        await manager.handleWatchedFileChanges([
+          { type: 'update', relPath: 'lib/b.rb' },
+          { type: 'create', relPath: 'src/c.ts' },
+          { type: 'update', relPath: 'docs/readme.md' }
+        ])
+        expect(
+          diagnosticsFor('lib/b.rb').some((b) => b.some((d) => d.message === 'watched:2'))
+        ).toBe(true)
+        // a .ts change is forwarded too — forwarding follows the registered globs,
+        // not a hard-coded language, so other servers benefit the same way
+        expect(
+          diagnosticsFor('src/c.ts').some((b) => b.some((d) => d.message === 'watched:1'))
+        ).toBe(true)
+      },
+      { timeout: 10_000 }
+    )
+
+    // a file type the server did not register a watcher for is never forwarded
+    expect(diagnosticsFor('docs/readme.md')).toEqual([])
+  }, 30_000)
+
+  it('restarts a server when a file in its restartOnChange list changes', async () => {
+    await manager.didOpen('lib/a.rb', 'class A\nend\n')
+    await vi.waitFor(() => expect(liveLspIds().length).toBe(1), { timeout: 10_000 })
+    const originalId = liveLspIds()[0]
+
+    await manager.handleWatchedFileChanges([{ type: 'update', relPath: 'Gemfile.lock' }])
+
+    // the old process is replaced by a fresh one (a real restart, not just a kill)
+    await vi.waitFor(
+      () => {
+        const ids = liveLspIds()
+        expect(ids.length).toBe(1)
+        expect(ids[0]).not.toBe(originalId)
+      },
+      { timeout: 10_000 }
+    )
+
+    // the deliberate restart must not count toward the crash cap: the respawned
+    // server is usable and re-opened the previously open document
+    await vi.waitFor(
+      async () => expect(await manager.hover('lib/a.rb', 0, 0)).toEqual({ contents: 'fake hover' }),
+      { timeout: 10_000 }
+    )
   }, 30_000)
 })
