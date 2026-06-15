@@ -42,29 +42,26 @@ describe('server registry resolution (spec 08)', () => {
     ])
   })
 
-  it('ruby-lsp resolves from PATH, with a gem install fallback', async () => {
-    expect(await config(emptyRegistry, 'ruby-lsp').command(projectRoot, dataDir)).toBeNull()
-
-    writeFileSync(join(binDir, 'ruby-lsp'), '#!/bin/sh\n')
-    chmodSync(join(binDir, 'ruby-lsp'), 0o755) // resolved only when executable
-    expect(await config(registry, 'ruby-lsp').command(projectRoot, dataDir)).toEqual({
-      cmd: join(binDir, 'ruby-lsp'),
-      args: []
-    })
-    expect(config(registry, 'ruby-lsp').install?.(dataDir, {})).toEqual({
-      cmd: 'gem',
-      args: ['install', 'ruby-lsp']
-    })
+  it('ruby-lsp runs from the fork bundle, not PATH or a gem install', () => {
+    // ruby-lsp is consumed from our fork via a composed bundle (see lsp.test.ts for
+    // the bundle behavior), so it is no longer resolved from PATH or gem-installed
+    const ruby = config(registry, 'ruby-lsp')
+    expect(ruby.install).toBeUndefined()
+    expect(ruby.restartOnChange).toContain('Gemfile.lock')
   })
 
   it('ignores a non-executable file of the same name on PATH', async () => {
+    // sorbet still resolves its binary from PATH, so it exercises the X_OK check
     const dir = mkdtempSync(join(tmpdir(), 'argus-servers-noexec-'))
+    const proj = mkdtempSync(join(tmpdir(), 'argus-servers-noexec-proj-'))
     try {
-      writeFileSync(join(dir, 'ruby-lsp'), '#!/bin/sh\n') // present but not +x
+      writeFileSync(join(proj, 'Gemfile.lock'), 'GEM\n  specs:\n    sorbet-static (0.5)\n')
+      writeFileSync(join(dir, 'srb'), '#!/bin/sh\n') // present but not +x
       const reg = buildServerRegistry({ PATH: dir })
-      expect(await config(reg, 'ruby-lsp').command(projectRoot, dataDir)).toBeNull()
+      expect(await config(reg, 'sorbet').command(proj, dataDir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
+      rmSync(proj, { recursive: true, force: true })
     }
   })
 

@@ -1,9 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ProjectRegistry } from './projects'
-import { languageIdForPath, parseGemfileLockGems, vtslsMemory } from './servers'
+import {
+  type CommandRunner,
+  ensureRubyLspForkBundle,
+  languageIdForPath,
+  parseGemfileLockGems,
+  rubyLspForkDir,
+  rubyLspForkGemfile,
+  vtslsMemory
+} from './servers'
 
 describe('project detection (spec 01/08)', () => {
   let root: string
@@ -114,5 +122,87 @@ describe('server configs (spec 08)', () => {
     expect(languageIdForPath('src/App.tsx')).toBe('typescriptreact')
     expect(languageIdForPath('scripts/build.sh')).toBe('shellscript')
     expect(languageIdForPath('README.md')).toBeNull()
+  })
+})
+
+describe('ruby-lsp fork bundle (spec 08)', () => {
+  it('generates a Gemfile that evals the project Gemfile and pins the fork to git', () => {
+    const content = rubyLspForkGemfile('/proj', true)
+    expect(content).toContain('eval_gemfile("/proj/Gemfile")')
+    expect(content).toContain(
+      'gem "ruby-lsp", git: "https://github.com/rogercampos/ruby-lsp", branch: "main"'
+    )
+    expect(content).not.toContain('source "https://rubygems.org"')
+  })
+
+  it('falls back to a rubygems source when the project has no Gemfile', () => {
+    const content = rubyLspForkGemfile('/proj', false)
+    expect(content).toContain('source "https://rubygems.org"')
+    expect(content).toContain('git: "https://github.com/rogercampos/ruby-lsp"')
+  })
+
+  it('places the composed bundle under the data dir, keyed by project', () => {
+    const a = rubyLspForkDir('/proj/a', '/data')
+    const b = rubyLspForkDir('/proj/b', '/data')
+    expect(a.startsWith('/data/lsp-servers/ruby-lsp-fork/')).toBe(true)
+    expect(a).not.toBe(b) // distinct projects get distinct bundles
+  })
+
+  it('writes the bundle, seeds the lock, runs bundle install once, then reuses it', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'argus-fork-proj-'))
+    const data = mkdtempSync(join(tmpdir(), 'argus-fork-data-'))
+    try {
+      writeFileSync(join(project, 'Gemfile'), "source 'https://rubygems.org'\ngem 'rake'\n")
+      writeFileSync(join(project, 'Gemfile.lock'), 'GEM\n  specs:\n    rake (13.0.0)\n')
+
+      const calls: Array<{
+        cmd: string
+        args: string[]
+        cwd: string
+        env: Record<string, string>
+      }> = []
+      const runner: CommandRunner = async (cmd, args, opts) => {
+        calls.push({ cmd, args, cwd: opts.cwd, env: opts.env })
+      }
+
+      const gemfile = await ensureRubyLspForkBundle(project, data, { PATH: '/usr/bin' }, runner)
+      expect(gemfile).toBe(join(rubyLspForkDir(project, data), 'Gemfile'))
+
+      // ran `bundle install` once, with BUNDLE_GEMFILE pointed at the composed Gemfile
+      expect(calls).toHaveLength(1)
+      expect(calls[0].cmd).toBe('bundle')
+      expect(calls[0].args).toEqual(['install'])
+      expect(calls[0].cwd).toBe(project)
+      expect(calls[0].env.BUNDLE_GEMFILE).toBe(gemfile)
+
+      // the composed Gemfile pins the fork, and the lock was seeded from the project
+      const written = readFileSync(gemfile as string, 'utf8')
+      expect(written).toContain('git: "https://github.com/rogercampos/ruby-lsp"')
+      expect(readFileSync(join(rubyLspForkDir(project, data), 'Gemfile.lock'), 'utf8')).toContain(
+        'rake (13.0.0)'
+      )
+
+      // a second call with nothing changed reuses the bundle (no extra install)
+      await ensureRubyLspForkBundle(project, data, { PATH: '/usr/bin' }, runner)
+      expect(calls).toHaveLength(1)
+    } finally {
+      rmSync(project, { recursive: true, force: true })
+      rmSync(data, { recursive: true, force: true })
+    }
+  })
+
+  it('returns null when bundle install fails', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'argus-fork-fail-'))
+    const data = mkdtempSync(join(tmpdir(), 'argus-fork-fail-data-'))
+    try {
+      writeFileSync(join(project, 'Gemfile'), "source 'https://rubygems.org'\n")
+      const failing: CommandRunner = async () => {
+        throw new Error('bundle install boom')
+      }
+      expect(await ensureRubyLspForkBundle(project, data, { PATH: '/usr/bin' }, failing)).toBeNull()
+    } finally {
+      rmSync(project, { recursive: true, force: true })
+      rmSync(data, { recursive: true, force: true })
+    }
   })
 })
