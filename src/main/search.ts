@@ -1,9 +1,19 @@
 import type { ChildProcess } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { rgPath } from '@vscode/ripgrep'
+import { rgPath as packedRgPath } from '@vscode/ripgrep'
 import type { SearchMatch, SearchOptions, SearchProgress } from '../shared/types'
 import { trackedSpawn } from './procRegistry'
+
+/**
+ * In a packaged build `@vscode/ripgrep` resolves the binary to a path inside
+ * `app.asar`, but electron-builder unpacks it to `app.asar.unpacked`. Electron
+ * redirects `fs`/`execFile` to the unpacked copy transparently, but NOT
+ * `child_process.spawn` (which is what we use) — spawning the in-asar path
+ * throws ENOTDIR, so search silently returns nothing. Rewrite to the unpacked
+ * location; in dev there is no `app.asar` segment so this is a no-op.
+ */
+const rgPath = packedRgPath.replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
 
 /**
  * Global search backend (spec 03): ripgrep with --json output, streaming
