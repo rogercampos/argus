@@ -5,6 +5,7 @@ import {
   fileExists,
   gitStatus,
   listFiles,
+  listIgnoredEntries,
   listTopLevel,
   readFile,
   readFileAbsolute,
@@ -203,6 +204,7 @@ export function createTestApi(workspacePath: string): TestApi {
 
     // repo
     listFiles: (root) => listFiles(root),
+    listIgnoredEntries: (root) => listIgnoredEntries(root),
     listTopLevel: (root) => listTopLevel(root),
     gitStatus: (root) => gitStatus(root),
     readFile: (root, relPath) => readFile(root, relPath),

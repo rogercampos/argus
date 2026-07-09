@@ -38,6 +38,27 @@ export async function listFiles(root: string): Promise<string[]> {
 }
 
 /**
+ * Git-ignored entries as relative paths, for display in the file tree with a
+ * dimmed "ignored" hint. Wholly-ignored directories collapse to a single
+ * entry with a trailing slash (`--directory`), so a gitignored `node_modules`
+ * shows as one row instead of expanding into tens of thousands of files.
+ * These are deliberately kept out of the file/string search lists.
+ */
+export async function listIgnoredEntries(root: string): Promise<string[]> {
+  try {
+    const { stdout } = await trackedExecFile(
+      'git',
+      ['-C', root, 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'],
+      { maxBuffer: GIT_MAX_BUFFER },
+      { kind: 'git', label: 'git ls-files (ignored)' }
+    )
+    return stdout.split('\0').filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+/**
  * Top-level entries only (directories with a trailing slash), for an instant
  * first paint of the file tree while the full `git ls-files` (seconds on
  * ~100k-file repos) is still running. Git-ignored entries are filtered with

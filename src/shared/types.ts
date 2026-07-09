@@ -389,6 +389,8 @@ export interface ArgusApi {
 
   // repo
   listFiles(root: string): Promise<string[]>
+  /** git-ignored entries for the tree, dirs collapsed with trailing slash */
+  listIgnoredEntries(root: string): Promise<string[]>
   /** top-level entries only, dirs with trailing slash (instant tree paint) */
   listTopLevel(root: string): Promise<string[]>
   gitStatus(root: string): Promise<GitStatusEntry[]>

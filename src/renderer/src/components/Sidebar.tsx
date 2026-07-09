@@ -186,6 +186,7 @@ function syncModelPaths(model: FileTreeModel, paths: readonly string[], starKey:
 
 export function Sidebar(): React.JSX.Element {
   const paths = useWorkspaceStore((s) => s.paths)
+  const ignoredPaths = useWorkspaceStore((s) => s.ignoredPaths)
   const gitStatus = useWorkspaceStore((s) => s.gitStatus)
   const excludedPaths = useWorkspaceStore((s) => s.excludedPaths)
   const loadingTree = useWorkspaceStore((s) => s.loadingTree)
@@ -195,6 +196,10 @@ export function Sidebar(): React.JSX.Element {
   const starKey = starredFolders.join('\n')
   const starredSet = useMemo(() => new Set(starredFolders), [starredFolders])
 
+  // git-ignored entries live in the tree (dimmed) but not in the search lists,
+  // so they are merged in here rather than in the store's `paths`
+  const treePaths = useMemo(() => [...paths, ...ignoredPaths], [paths, ignoredPaths])
+
   const model = workspaceModel()
 
   useEffect(() => {
@@ -202,8 +207,8 @@ export function Sidebar(): React.JSX.Element {
     // decoration renderer read — an effect, not a render-time mutation — then
     // (re)sync, which re-sorts/re-renders rows with the fresh set
     starredRef.current = starredSet
-    syncModelPaths(model, paths, starKey)
-  }, [model, paths, starKey, starredSet])
+    syncModelPaths(model, treePaths, starKey)
+  }, [model, treePaths, starKey, starredSet])
 
   useEffect(() => {
     // Excluded paths render dimmed like git-ignored entries; the tree
@@ -215,8 +220,10 @@ export function Sidebar(): React.JSX.Element {
       path: filePaths.has(path) ? path : `${path}/`,
       status: 'ignored' as const
     }))
-    model.setGitStatus([...gitStatus, ...excluded])
-  }, [model, gitStatus, excludedPaths])
+    // git-ignored entries already carry their trailing slash for directories
+    const ignored = ignoredPaths.map((path) => ({ path, status: 'ignored' as const }))
+    model.setGitStatus([...gitStatus, ...excluded, ...ignored])
+  }, [model, gitStatus, excludedPaths, ignoredPaths])
 
   // Reveal Active File (spec 07): expand ancestors, scroll, select.
   // The previous selection is cleared first; selection-change events are

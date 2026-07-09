@@ -9,6 +9,7 @@ import {
   fileExists,
   gitStatus,
   listFiles,
+  listIgnoredEntries,
   listTopLevel,
   readFile,
   readFileAbsolute,
@@ -101,6 +102,7 @@ export function registerIpcHandlers(): void {
   // repo — the root is the window's own workspace, never a renderer-supplied
   // path, so a window can only ever read/list inside the folder it owns
   ipcMain.handle('repo:list-files', (event) => listFiles(eventWorkspace(event)))
+  ipcMain.handle('repo:list-ignored', (event) => listIgnoredEntries(eventWorkspace(event)))
   ipcMain.handle('repo:list-top-level', (event) => listTopLevel(eventWorkspace(event)))
   ipcMain.handle('repo:git-status', (event) => gitStatus(eventWorkspace(event)))
   ipcMain.handle('file:read', (event, _root: string, relPath: string) =>

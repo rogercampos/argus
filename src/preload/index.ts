@@ -90,6 +90,7 @@ const api: ArgusApi = {
     ipcRenderer.invoke('workspace:save-file-state', relPath, state),
 
   listFiles: (root) => ipcRenderer.invoke('repo:list-files', root),
+  listIgnoredEntries: (root) => ipcRenderer.invoke('repo:list-ignored', root),
   listTopLevel: (root) => ipcRenderer.invoke('repo:list-top-level', root),
   gitStatus: (root) => ipcRenderer.invoke('repo:git-status', root),
   readFile: (root, relPath) => ipcRenderer.invoke('file:read', root, relPath),

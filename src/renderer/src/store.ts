@@ -32,6 +32,8 @@ interface WorkspaceStore {
   rootPath: string | null
   rootName: string | null
   paths: string[]
+  /** git-ignored tree entries (dirs end with '/'), shown dimmed; not searchable */
+  ignoredPaths: string[]
   filePaths: Set<string>
   gitStatus: GitStatusEntry[]
   gitState: GitState
@@ -204,6 +206,12 @@ async function saveViewStateFor(path: string): Promise<void> {
   })
 }
 
+/** Openable files: searchable paths plus git-ignored files (dirs, ending in
+ * '/', are excluded — only files can be opened). */
+function buildFilePaths(paths: string[], ignoredPaths: string[]): Set<string> {
+  return new Set([...paths, ...ignoredPaths.filter((p) => !p.endsWith('/'))])
+}
+
 let relistTimer: ReturnType<typeof setTimeout> | null = null
 let relistRunning = false
 let relistQueued = false
@@ -221,8 +229,15 @@ async function runTreeRelist(): Promise<void> {
       relistQueued = false
       const { rootPath } = useWorkspaceStore.getState()
       if (!rootPath) return
-      const paths = await window.api.listFiles(rootPath)
-      useWorkspaceStore.setState({ paths, filePaths: new Set(paths) })
+      const [paths, ignoredPaths] = await Promise.all([
+        window.api.listFiles(rootPath),
+        window.api.listIgnoredEntries(rootPath)
+      ])
+      useWorkspaceStore.setState({
+        paths,
+        ignoredPaths,
+        filePaths: buildFilePaths(paths, ignoredPaths)
+      })
     } while (relistQueued)
   } finally {
     relistRunning = false
@@ -238,6 +253,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   rootPath: null,
   rootName: null,
   paths: [],
+  ignoredPaths: [],
   filePaths: new Set(),
   gitStatus: [],
   gitState: { isRepo: false, branch: null, state: null },
@@ -352,7 +368,13 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     // git statuses arrive from the monitor as diffs; no upfront fetch needed
     const paths = await window.api.listFiles(root)
-    set({ paths, filePaths: new Set(paths), loadingTree: false })
+    set({ paths, filePaths: buildFilePaths(paths, get().ignoredPaths), loadingTree: false })
+
+    // git-ignored entries decorate the tree but never gate its ready state, so
+    // they load separately and merge in once available
+    void window.api.listIgnoredEntries(root).then((ignoredPaths) => {
+      set({ ignoredPaths, filePaths: buildFilePaths(get().paths, ignoredPaths) })
+    })
   },
 
   openFile: async (relPath, options = {}) => {

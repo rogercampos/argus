@@ -7,6 +7,7 @@ import {
   fileExists,
   gitStatus,
   listFiles,
+  listIgnoredEntries,
   listTopLevel,
   readFile,
   readFileAbsolute,
@@ -59,6 +60,23 @@ describe('repo', () => {
     expect(paths).toContain('src/index.ts')
     expect(paths).toContain('src/new.ts')
     expect(paths).not.toContain('ignored.log')
+  })
+
+  it('lists git-ignored entries, collapsing wholly-ignored directories', async () => {
+    // an ignored file and a wholly-ignored directory
+    mkdirSync(join(root, 'ignored_dir'))
+    writeFileSync(join(root, 'ignored_dir/a.txt'), 'a\n')
+    writeFileSync(join(root, 'ignored_dir/b.txt'), 'b\n')
+    writeFileSync(join(root, '.gitignore'), 'ignored.log\nignored_dir/\n')
+
+    const ignored = await listIgnoredEntries(root)
+    expect(ignored).toContain('ignored.log')
+    // the directory collapses to a single trailing-slash entry, not its files
+    expect(ignored).toContain('ignored_dir/')
+    expect(ignored).not.toContain('ignored_dir/a.txt')
+    // tracked/untracked files never appear here
+    expect(ignored).not.toContain('README.md')
+    expect(ignored).not.toContain('src/new.ts')
   })
 
   it('reports git status entries', async () => {
