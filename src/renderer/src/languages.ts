@@ -4,7 +4,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { python } from '@codemirror/lang-python'
-import { LanguageSupport } from '@codemirror/language'
+import { LanguageDescription, LanguageSupport } from '@codemirror/language'
 import type { Extension } from '@codemirror/state'
 import { tags } from '@lezer/highlight'
 import { rubyHighlight } from './ruby/rubyHighlight'
@@ -32,8 +32,63 @@ export const SYNTAX_CLASS_RULES = [
   { tag: [tags.comment, tags.blockComment, tags.lineComment], class: 'tsh-comment' },
   { tag: [tags.propertyName, tags.attributeName], class: 'tsh-property' },
   { tag: [tags.operator, tags.punctuation], class: 'tsh-operator' },
-  { tag: tags.invalid, class: 'tsh-invalid' }
+  { tag: [tags.escape, tags.character], class: 'tsh-escape' },
+  { tag: tags.invalid, class: 'tsh-invalid' },
+  // Markdown structure (from @lezer/markdown's style tags). Marks (#, *, `, >,
+  // list bullets) are processingInstruction; the rendered text gets the
+  // heading/strong/emphasis/etc. tag, so a mark and its content never collide.
+  {
+    tag: [
+      tags.heading,
+      tags.heading1,
+      tags.heading2,
+      tags.heading3,
+      tags.heading4,
+      tags.heading5,
+      tags.heading6
+    ],
+    class: 'tsh-heading'
+  },
+  { tag: tags.strong, class: 'tsh-strong' },
+  { tag: tags.emphasis, class: 'tsh-emphasis' },
+  { tag: tags.strikethrough, class: 'tsh-strikethrough' },
+  { tag: [tags.link, tags.url], class: 'tsh-link' },
+  { tag: tags.monospace, class: 'tsh-code' },
+  { tag: tags.quote, class: 'tsh-quote' },
+  // List item text stays default fg (tags.list would tint whole items); only
+  // the bullet/number marker is dimmed via processingInstruction below.
+  {
+    tag: [tags.processingInstruction, tags.contentSeparator, tags.labelName],
+    class: 'tsh-markup-mark'
+  }
 ]
+
+// Fenced code blocks (```js …) highlight with the same per-language wiring as
+// standalone files. Ruby is intentionally absent: it renders via tree-sitter,
+// not a lezer LanguageSupport, so it can't embed in the markdown parse tree.
+const markdownCodeLanguages = [
+  LanguageDescription.of({
+    name: 'javascript',
+    alias: ['js', 'mjs', 'cjs', 'node'],
+    load: async () => javascript()
+  }),
+  LanguageDescription.of({ name: 'jsx', load: async () => javascript({ jsx: true }) }),
+  LanguageDescription.of({
+    name: 'typescript',
+    alias: ['ts'],
+    load: async () => javascript({ typescript: true })
+  }),
+  LanguageDescription.of({
+    name: 'tsx',
+    load: async () => javascript({ typescript: true, jsx: true })
+  }),
+  LanguageDescription.of({ name: 'css', load: async () => css() }),
+  LanguageDescription.of({ name: 'html', alias: ['htm'], load: async () => html() }),
+  LanguageDescription.of({ name: 'json', load: async () => json() }),
+  LanguageDescription.of({ name: 'python', alias: ['py'], load: async () => python() })
+]
+
+const markdownSupport = markdown({ codeLanguages: markdownCodeLanguages })
 
 export function languageFor(path: string): Extension[] {
   // Ruby: tree-sitter highlighting, like sourcedelve (LSP semantic tokens off)
@@ -59,7 +114,7 @@ export function languageFor(path: string): Extension[] {
       return [json()]
     case 'md':
     case 'markdown':
-      return [markdown()]
+      return [markdownSupport]
     case 'py':
       return [python()]
     default:

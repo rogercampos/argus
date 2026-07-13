@@ -202,6 +202,39 @@ body {
   text-decoration: underline;
 }
 
+/* Markdown structure (shares the spec 13 palette; see SYNTAX_CLASS_RULES). */
+.tsh-heading {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.tsh-strong {
+  color: var(--color-fg);
+  font-weight: 700;
+}
+.tsh-emphasis {
+  font-style: italic;
+}
+.tsh-strikethrough {
+  color: var(--color-fg-dim);
+  text-decoration: line-through;
+}
+.tsh-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.tsh-code {
+  color: var(--color-orangex);
+}
+.tsh-quote {
+  color: var(--color-fg-dim);
+  font-style: italic;
+}
+/* Markdown syntax markers (#, *, `, >, list bullets, --- rules) — muted so
+   the rendered content stands out from its markup. */
+.tsh-markup-mark {
+  color: var(--color-fg-dim);
+}
+
 /* Cmd+hover go-to-definition affordance */
 .argus-cmd-link {
   text-decoration: underline;

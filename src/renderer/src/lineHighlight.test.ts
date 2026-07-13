@@ -44,6 +44,33 @@ describe('search-result line highlighting', () => {
   })
 })
 
+describe('markdown lines', () => {
+  // A span's className may combine tags (e.g. a heading's "#" marker carries
+  // both "tsh-heading" and "tsh-markup-mark"); match on the text a class
+  // token covers.
+  const textWithClass = (path: string, text: string, token: string) =>
+    (lineSpansFor(path, text) ?? [])
+      .filter((s) => s.className.split(' ').includes(token))
+      .map((s) => text.slice(s.from, s.to))
+
+  it('highlights ATX headings and their marker', () => {
+    expect(textWithClass('README.md', '# Title', 'tsh-heading').map((s) => s.trim())).toContain(
+      'Title'
+    )
+    expect(textWithClass('README.md', '# Title', 'tsh-markup-mark')).toContain('#')
+  })
+
+  it('highlights strong, emphasis and inline code', () => {
+    expect(textWithClass('notes.markdown', '**bold**', 'tsh-strong')).toContain('bold')
+    expect(textWithClass('notes.md', '*slanted*', 'tsh-emphasis')).toContain('slanted')
+    expect(textWithClass('notes.md', '`snippet`', 'tsh-code')).toContain('snippet')
+  })
+
+  it('highlights links', () => {
+    expect(textWithClass('doc.md', '[home](https://x.dev)', 'tsh-link')).toContain('home')
+  })
+})
+
 describe('ruby lines (lazily-loaded tree-sitter grammar)', () => {
   it('returns null while loading, then real spans once the wasm is ready', async () => {
     let readyCalls = 0
