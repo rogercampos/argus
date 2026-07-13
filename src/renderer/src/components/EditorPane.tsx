@@ -23,6 +23,7 @@ function buildExtensions(path: string): Extension[] {
 
   return [
     basicSetup,
+    EditorView.lineWrapping,
     argusKeymap(),
     highlightSelectionMatches(),
     sync,
