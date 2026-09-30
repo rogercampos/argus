@@ -51,7 +51,7 @@ export interface PanelLayoutState {
 
 export interface PersistedWorkspaceState {
   editor: {
-    openTabs: Array<{ path: string; external?: boolean }>
+    openTabs: Array<{ path: string; external?: boolean; pinned?: boolean }>
     activeTab: number
   }
   panels: PanelLayoutState
@@ -299,6 +299,12 @@ export type MenuCommand =
   | 'save'
   | 'save-all'
   | 'close-tab'
+  | 'close-other-tabs'
+  | 'close-saved-tabs'
+  | 'close-all-tabs'
+  | 'reopen-closed-tab'
+  | 'toggle-pin-tab'
+  | 'show-open-tabs'
   | 'find'
   | 'replace'
   | 'global-search'

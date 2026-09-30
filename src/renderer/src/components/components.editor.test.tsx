@@ -7,6 +7,7 @@ import { activeTabPath, activeView, documents, useWorkspaceStore } from '../stor
 import { EditorPane } from './EditorPane'
 import { EditorTabs } from './EditorTabs'
 import { GoToLineModal } from './GoToLineModal'
+import { OpenTabsModal } from './OpenTabsModal'
 
 let repo: FixtureRepo
 let testApi: TestApi
@@ -97,6 +98,104 @@ describe('EditorTabs', () => {
   it('renders nothing without tabs', () => {
     const { container } = render(<EditorTabs />)
     expect(container.firstChild).toBeNull()
+  })
+
+  const paths = (): string[] => useWorkspaceStore.getState().tabs.tabs.map((t) => t.path)
+  const openAll = async (...files: string[]): Promise<void> => {
+    await useWorkspaceStore.getState().closeAllTabs()
+    for (const f of files) await useWorkspaceStore.getState().openFile(f)
+  }
+
+  it('context menu closes to the right / left and disables what does not apply', async () => {
+    const user = userEvent.setup()
+    await openAll('README.md', 'src/index.ts', 'src/lib/greet.ts', 'src/lib/math.ts')
+    render(<EditorTabs />)
+
+    fireEvent.contextMenu(screen.getByText('greet.ts'))
+    await user.click(screen.getByText('Close Tabs to the Right'))
+    await waitFor(() => expect(paths()).toEqual(['README.md', 'src/index.ts', 'src/lib/greet.ts']))
+    expect(activeTabPath()).toBe('src/lib/greet.ts')
+
+    fireEvent.contextMenu(screen.getByText('README.md'))
+    expect(screen.getByRole('menuitem', { name: /Close Tabs to the Left/ })).toBeDisabled()
+    await user.click(screen.getByRole('menuitem', { name: /Close Tabs to the Right/ }))
+    await waitFor(() => expect(paths()).toEqual(['README.md']))
+  })
+
+  it('pinned tabs survive bulk closes until unpinned', async () => {
+    const user = userEvent.setup()
+    await openAll('src/index.ts', 'src/lib/greet.ts', 'src/lib/math.ts')
+    render(<EditorTabs />)
+
+    fireEvent.contextMenu(screen.getByText('math.ts'))
+    await user.click(screen.getByText('Pin Tab'))
+    expect(paths()[0]).toBe('src/lib/math.ts')
+    expect(screen.getByTitle('Unpin tab')).toBeInTheDocument()
+
+    await useWorkspaceStore.getState().closeAllTabs()
+    await waitFor(() => expect(paths()).toEqual(['src/lib/math.ts']))
+
+    await user.click(screen.getByTitle('Unpin tab'))
+    await useWorkspaceStore.getState().closeAllTabs()
+    await waitFor(() => expect(paths()).toEqual([]))
+  })
+
+  it('reopen closed tab restores the most recently closed ones in order', async () => {
+    await openAll('src/index.ts', 'src/lib/greet.ts')
+    await useWorkspaceStore.getState().closeTabAt(1)
+    await useWorkspaceStore.getState().closeTabAt(0)
+    expect(paths()).toEqual([])
+
+    await useWorkspaceStore.getState().reopenClosedTab()
+    expect(paths()).toEqual(['src/index.ts'])
+    await useWorkspaceStore.getState().reopenClosedTab()
+    expect(paths()).toEqual(['src/index.ts', 'src/lib/greet.ts'])
+    expect(activeTabPath()).toBe('src/lib/greet.ts')
+  })
+
+  it('tab list button opens the open-tabs list', async () => {
+    const user = userEvent.setup()
+    await openAll('src/index.ts', 'src/lib/greet.ts')
+    render(<EditorTabs />)
+    await user.click(screen.getByTitle(/Show all open tabs/))
+    expect(useWorkspaceStore.getState().openModal).toBe('open-tabs')
+    useWorkspaceStore.setState({ openModal: null })
+  })
+})
+
+describe('OpenTabsModal', () => {
+  const paths = (): string[] => useWorkspaceStore.getState().tabs.tabs.map((t) => t.path)
+
+  it('filters, activates without reordering, and closes rows in place', async () => {
+    const user = userEvent.setup()
+    await useWorkspaceStore.getState().closeAllTabs()
+    for (const f of ['README.md', 'src/index.ts', 'src/lib/greet.ts', 'src/lib/math.ts']) {
+      await useWorkspaceStore.getState().openFile(f)
+    }
+    useWorkspaceStore.setState({ openModal: 'open-tabs' })
+    render(<OpenTabsModal />)
+    expect(screen.getByText('4 open tabs', { exact: false })).toBeInTheDocument()
+
+    // close a row: the list stays open
+    const row = screen.getAllByTitle(/^Close tab/)
+    await user.click(row[0]) // README.md
+    await waitFor(() => expect(paths()).not.toContain('README.md'))
+    expect(useWorkspaceStore.getState().openModal).toBe('open-tabs')
+
+    await user.type(screen.getByPlaceholderText('Filter open tabs…'), 'index')
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(activeTabPath()).toBe('src/index.ts'))
+    expect(paths()).toEqual(['src/index.ts', 'src/lib/greet.ts', 'src/lib/math.ts'])
+    expect(useWorkspaceStore.getState().openModal).toBeNull()
+  })
+
+  it('header closes the tabs other than the highlighted one', async () => {
+    const user = userEvent.setup()
+    useWorkspaceStore.setState({ openModal: 'open-tabs' })
+    render(<OpenTabsModal />)
+    await user.type(screen.getByPlaceholderText('Filter open tabs…'), 'greet')
+    await user.click(screen.getByRole('button', { name: 'Close Others' }))
+    await waitFor(() => expect(paths()).toEqual(['src/lib/greet.ts']))
   })
 })
 

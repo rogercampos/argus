@@ -22,7 +22,7 @@ describe('workspace store session restore', () => {
       excludedPaths: ['docs'],
       editor: {
         openTabs: [
-          { path: 'src/lib/math.ts' },
+          { path: 'src/lib/math.ts', pinned: true },
           { path: 'vanished.ts' }, // no longer on disk: dropped on restore
           { path: 'src/lib/greet.ts' }
         ],
@@ -52,5 +52,6 @@ describe('workspace store session restore', () => {
     // activeTab index 2 pointed at greet.ts; after the drop it clamps to it
     expect(activeTabPath()).toBe('src/lib/greet.ts')
     expect(s.language).toBe('TypeScript')
+    expect(s.tabs.tabs.map((t) => Boolean(t.pinned))).toEqual([true, false])
   })
 })

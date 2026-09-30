@@ -14,6 +14,7 @@ import { EditorPane } from './EditorPane'
 import { GoToFileModal } from './GoToFileModal'
 import { GoToLineModal } from './GoToLineModal'
 import { GoToSymbolModal } from './GoToSymbolModal'
+import { OpenTabsModal } from './OpenTabsModal'
 import { ProjectsModal } from './ProjectsModal'
 import { RecentFilesModal } from './RecentFilesModal'
 import { Resizer } from './Resizer'
@@ -75,6 +76,24 @@ export function WorkspaceShell(): React.JSX.Element {
         break
       case 'close-tab':
         void state.closeTabAt(state.tabs.activeIndex)
+        break
+      case 'close-other-tabs':
+        if (state.tabs.tabs.length > 0) void state.closeOthers(state.tabs.activeIndex)
+        break
+      case 'close-saved-tabs':
+        void state.closeSavedTabs()
+        break
+      case 'close-all-tabs':
+        void state.closeAllTabs()
+        break
+      case 'reopen-closed-tab':
+        void state.reopenClosedTab()
+        break
+      case 'toggle-pin-tab':
+        if (state.tabs.tabs.length > 0) state.togglePinTab(state.tabs.activeIndex)
+        break
+      case 'show-open-tabs':
+        state.setModal('open-tabs')
         break
       case 'next-tab':
         void state.cycleTabs(1)
@@ -187,6 +206,7 @@ export function WorkspaceShell(): React.JSX.Element {
     <div className="shell-gradient isolate flex h-screen flex-col">
       {openModal === 'go-to-file' && <GoToFileModal />}
       {openModal === 'recent-files' && <RecentFilesModal />}
+      {openModal === 'open-tabs' && <OpenTabsModal />}
       {openModal === 'go-to-line' && <GoToLineModal />}
       {openModal === 'go-to-symbol' && <GoToSymbolModal />}
       {openModal === 'projects' && <ProjectsModal />}

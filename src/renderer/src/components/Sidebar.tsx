@@ -11,6 +11,9 @@ import { SectionLabel } from './ui/SectionLabel'
 /** Mutable star set read by the sort comparator. */
 const starredRef = { current: new Set<string>() }
 
+/** Last store.revealEpoch the tree acted on. */
+let handledRevealEpoch = 0
+
 /** True while locate() rewrites the selection programmatically. */
 const suppressSelectionRef = { current: false }
 
@@ -254,6 +257,15 @@ export function Sidebar(): React.JSX.Element {
       if (command === 'reveal-active-file') locate()
     })
   }, [locate])
+
+  // in-app reveal requests (tab context menu); the module-level mark keeps a
+  // remount (tree toggled back on) from replaying an already-handled request
+  const revealEpoch = useWorkspaceStore((s) => s.revealEpoch)
+  useEffect(() => {
+    if (revealEpoch === handledRevealEpoch) return
+    handledRevealEpoch = revealEpoch
+    locate()
+  }, [revealEpoch, locate])
 
   // Clicking the ★ decoration unstars the folder. Decorations have no click
   // API, so a capture-phase listener intercepts before the row toggles;

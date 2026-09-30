@@ -14,9 +14,24 @@ import { defaultWorkspaceState } from '../../shared/types'
 import { DocumentManager } from './documents'
 import { JumpHistory } from './history'
 import type { TabsState } from './tabs'
-import { closeOtherTabs, closeTab, cycleTab, MAX_OPEN_TABS, openTab, tabToEvict } from './tabs'
+import {
+  closeOtherTabs,
+  closeSavedTabs,
+  closeTab,
+  closeTabsToLeft,
+  closeTabsToRight,
+  closeUnpinnedTabs,
+  cycleTab,
+  MAX_OPEN_TABS,
+  moveTab,
+  openTab,
+  tabToEvict,
+  togglePinned
+} from './tabs'
 
 const MAX_RECENT_FILES = 100
+/** Reopen Closed Tab history depth (session-only) */
+const MAX_CLOSED_TABS = 30
 
 export type ModalKind =
   | 'go-to-file'
@@ -26,6 +41,7 @@ export type ModalKind =
   | 'projects'
   | 'slow-ops'
   | 'settings'
+  | 'open-tabs'
   | null
 
 interface WorkspaceStore {
@@ -68,8 +84,23 @@ interface WorkspaceStore {
   setModal: (modal: ModalKind) => void
   activateTab: (index: number) => Promise<void>
   closeTabAt: (index: number) => Promise<void>
+  /** close all unpinned tabs except `index` */
   closeOthers: (index: number) => Promise<void>
+  closeTabsToRight: (index: number) => Promise<void>
+  closeTabsToLeft: (index: number) => Promise<void>
+  /** close unpinned tabs without unsaved changes */
+  closeSavedTabs: () => Promise<void>
+  /** close all unpinned tabs (pinned ones stay) */
   closeAllTabs: () => Promise<void>
+  /** reopen the most recently closed tab still not open (session-only) */
+  reopenClosedTab: () => Promise<void>
+  /** paths of closed tabs, most recent last */
+  closedTabs: string[]
+  togglePinTab: (index: number) => void
+  moveTab: (from: number, to: number) => void
+  /** bumped to ask the file tree to reveal the active file */
+  revealEpoch: number
+  revealActiveFile: () => void
   cycleTabs: (delta: 1 | -1) => Promise<void>
   setPanels: (update: Partial<PanelLayoutState>) => void
   /** replace the workspace's excluded paths (Settings) and persist */
@@ -150,7 +181,11 @@ function schedulePersist(): void {
       panels: s.panels,
       recentFiles: s.recentFiles,
       editor: {
-        openTabs: s.tabs.tabs.map((t) => ({ path: t.path, external: t.external || undefined })),
+        openTabs: s.tabs.tabs.map((t) => ({
+          path: t.path,
+          external: t.external || undefined,
+          pinned: t.pinned || undefined
+        })),
         activeTab: s.tabs.activeIndex
       }
     }
@@ -275,6 +310,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   definitionChoices: null,
   schemaInfo: null,
   crashes: [],
+  closedTabs: [],
+  revealEpoch: 0,
 
   init: async () => {
     const root = window.api.windowInit.workspacePath
@@ -312,7 +349,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       // Tabs whose file disappeared since last session are dropped.
       const restored = (stored.editor?.openTabs ?? []).map((t) => ({
         path: t.path,
-        external: t.external ?? false
+        external: t.external ?? false,
+        pinned: t.pinned || undefined
       }))
       const checks = await Promise.all(
         restored.map(async (t) => {
@@ -433,43 +471,43 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     schedulePersist()
   },
 
-  closeTabAt: async (index) => {
-    const { tabs } = get()
-    const tab = tabs.tabs[index]
-    if (!tab) return
-    await saveViewStateFor(tab.path)
-    await documents.close(tab.path)
-    const next = closeTab(tabs, index)
-    set({ tabs: next })
-    if (next.tabs.length > 0) await get().activateTab(next.activeIndex)
-    else set({ language: null, cursor: null, activeDocEpoch: get().activeDocEpoch + 1 })
+  closeTabAt: (index) => applyClose(closeTab(get().tabs, index)),
+
+  closeOthers: (index) => applyClose(closeOtherTabs(get().tabs, index)),
+
+  closeTabsToRight: (index) => applyClose(closeTabsToRight(get().tabs, index)),
+
+  closeTabsToLeft: (index) => applyClose(closeTabsToLeft(get().tabs, index)),
+
+  closeSavedTabs: () => applyClose(closeSavedTabs(get().tabs, (p) => documents.isDirty(p))),
+
+  closeAllTabs: () => applyClose(closeUnpinnedTabs(get().tabs)),
+
+  reopenClosedTab: async () => {
+    const closed = [...get().closedTabs]
+    const open = new Set(get().tabs.tabs.map((t) => t.path))
+    let path: string | undefined
+    while (closed.length > 0 && !path) {
+      const candidate = closed.pop()
+      if (candidate && !open.has(candidate)) path = candidate
+    }
+    set({ closedTabs: closed })
+    if (path) await get().navigateTo(path)
+  },
+
+  togglePinTab: (index) => {
+    set({ tabs: togglePinned(get().tabs, index) })
     schedulePersist()
   },
 
-  closeOthers: async (index) => {
-    const { tabs } = get()
-    for (let i = 0; i < tabs.tabs.length; i++) {
-      if (i === index) continue
-      await saveViewStateFor(tabs.tabs[i].path)
-      await documents.close(tabs.tabs[i].path)
-    }
-    set({ tabs: closeOtherTabs(tabs, index) })
-    await get().activateTab(0)
+  moveTab: (from, to) => {
+    set({ tabs: moveTab(get().tabs, from, to) })
+    schedulePersist()
   },
 
-  closeAllTabs: async () => {
-    const { tabs } = get()
-    for (const tab of tabs.tabs) {
-      await saveViewStateFor(tab.path)
-      await documents.close(tab.path)
-    }
-    set({
-      tabs: { tabs: [], activeIndex: 0 },
-      language: null,
-      cursor: null,
-      activeDocEpoch: get().activeDocEpoch + 1
-    })
-    schedulePersist()
+  revealActiveFile: () => {
+    if (!get().panels.leftVisible) get().setPanels({ leftVisible: true })
+    set({ revealEpoch: get().revealEpoch + 1 })
   },
 
   cycleTabs: async (delta) => {
@@ -560,6 +598,39 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
   dismissCrash: (id) => set({ crashes: get().crashes.filter((c) => c.id !== id) })
 }))
+
+/**
+ * Commit a tab-close transition computed by the pure helpers in tabs.ts:
+ * flush + close every removed document, remember it for Reopen Closed Tab,
+ * then activate whichever tab `next` makes active.
+ */
+async function applyClose(next: TabsState): Promise<void> {
+  const store = useWorkspaceStore
+  const { tabs } = store.getState()
+  if (next === tabs) return
+  const remaining = new Set(next.tabs.map((t) => t.path))
+  const removed = tabs.tabs.filter((t) => !remaining.has(t.path)).map((t) => t.path)
+  for (const path of removed) {
+    await saveViewStateFor(path)
+    await documents.close(path)
+  }
+  const closedTabs = [
+    ...store.getState().closedTabs.filter((p) => !removed.includes(p)),
+    ...removed
+  ].slice(-MAX_CLOSED_TABS)
+  const wasActive = tabs.tabs[tabs.activeIndex]?.path
+  store.setState({ tabs: next, closedTabs })
+  if (next.tabs.length === 0) {
+    store.setState({
+      language: null,
+      cursor: null,
+      activeDocEpoch: store.getState().activeDocEpoch + 1
+    })
+  } else if (next.tabs[next.activeIndex]?.path !== wasActive) {
+    await store.getState().activateTab(next.activeIndex)
+  }
+  schedulePersist()
+}
 
 export const MAX_CRASH_CARDS = 5
 

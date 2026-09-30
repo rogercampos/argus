@@ -70,7 +70,12 @@ export async function rebuildApplicationMenu(): Promise<void> {
         item('Save', 'save'),
         item('Save All', 'save-all'),
         { type: 'separator' },
+        item('Reopen Closed Tab', 'reopen-closed-tab'),
+        { type: 'separator' },
         item('Close Tab', 'close-tab'),
+        item('Close Other Tabs', 'close-other-tabs'),
+        item('Close Saved Tabs', 'close-saved-tabs'),
+        item('Close All Tabs', 'close-all-tabs'),
         { label: 'Close Window', accelerator: 'Cmd+Shift+W', role: 'close' }
       ]
     },
@@ -111,6 +116,8 @@ export async function rebuildApplicationMenu(): Promise<void> {
         { type: 'separator' },
         item('Next Tab', 'next-tab'),
         item('Previous Tab', 'previous-tab'),
+        item('Show Open Tabs…', 'show-open-tabs'),
+        item('Pin/Unpin Tab', 'toggle-pin-tab'),
         { type: 'separator' },
         { role: 'toggleDevTools' }
       ]
