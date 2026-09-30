@@ -5,15 +5,28 @@ import {
   toElectronAccelerator
 } from '../shared/shortcuts'
 import type { MenuCommand } from '../shared/types'
-import { showOpenFolderDialog } from './ipc'
+import { openDiffForDirectory, showOpenDiffDialog, showOpenFolderDialog } from './ipc'
 import { listRecentWorkspaces, loadKeymap } from './state'
-import { findWorkspaceWindow, openWorkspaceWindow } from './windows'
+import {
+  findWorkspaceWindow,
+  openWorkspaceWindow,
+  repoForDiffWindow,
+  workspaceForWindow
+} from './windows'
 
 /** Native macOS menu bar (spec 02). All commands reachable; no command palette.
  * Accelerators come from the user's keymap (Settings → Keyboard). */
 
 function send(command: MenuCommand): void {
   BrowserWindow.getFocusedWindow()?.webContents.send('menu', command)
+}
+
+/** Review the focused window's repo (workspace or diff window), else ask for one. */
+function reviewDiff(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const dir = focused ? (workspaceForWindow(focused.id) ?? repoForDiffWindow(focused.id)) : null
+  if (dir) void openDiffForDirectory(dir)
+  else void showOpenDiffDialog()
 }
 
 export async function rebuildApplicationMenu(): Promise<void> {
@@ -65,6 +78,9 @@ export async function rebuildApplicationMenu(): Promise<void> {
           click: () => void showOpenFolderDialog()
         },
         { label: 'Open Recent', submenu: recentItems },
+        { type: 'separator' },
+        { label: 'Review Diff…', click: reviewDiff },
+        { label: 'Review Diff of Folder…', click: () => void showOpenDiffDialog() },
         { type: 'separator' },
         item('New File', 'new-file'),
         item('Save', 'save'),

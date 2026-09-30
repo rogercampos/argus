@@ -3,6 +3,7 @@ import './assets/main.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { useDiffStore } from './diffStore'
 import { gotoDefinition } from './lsp'
 import { useProcStore } from './procStore'
 import { useSearchStore } from './searchStore'
@@ -16,6 +17,7 @@ if (import.meta.env.DEV) {
   // Dev/test hook: lets CDP-driven verification reach application state
   ;(window as unknown as Record<string, unknown>).__argus = {
     workspaceStore: useWorkspaceStore,
+    diffStore: useDiffStore,
     searchStore: useSearchStore,
     tasksStore: useTasksStore,
     procStore: useProcStore,

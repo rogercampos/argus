@@ -8,6 +8,7 @@ import {
   sampleProjectFiles
 } from '../../test/fixtures'
 import type {
+  DiffLoadResult,
   FileReadResult,
   GitState,
   PersistedWorkspaceState,
@@ -21,8 +22,9 @@ vi.hoisted(() => {
 })
 
 import { registerIpcHandlers } from './ipc'
+import { liveProcesses } from './procRegistry'
 import { initStateDir } from './state'
-import { openWorkspaceWindow } from './windows'
+import { openWorkspaceWindow, repoForDiffWindow } from './windows'
 
 /**
  * The full IPC surface, invoked through the registered handlers with a fake
@@ -174,6 +176,113 @@ describe('IPC handlers (the renderer-facing contract)', () => {
 
     const tasks = window.webContents.sent.filter((m) => m.channel === 'task:update')
     expect(tasks.length).toBeGreaterThanOrEqual(2) // started + finished at minimum
+  })
+
+  it('diff:open-window opens a diff window for a repo, and warns outside one', async () => {
+    const before = electronStub.liveWindows().length
+    await invoke('diff:open-window', join(repo.root, 'src'), { kind: 'uncommitted' })
+    const opened = electronStub.liveWindows().at(-1) as StubBrowserWindow
+    expect(electronStub.liveWindows().length).toBe(before + 1)
+    // a subfolder resolves to the repository's top level
+    expect(repoForDiffWindow(opened.id)).toBe(repo.root)
+    opened.close()
+
+    const warnings = electronStub.messageBoxes.length
+    await invoke('diff:open-window', electronStub.userDataDir)
+    expect(electronStub.messageBoxes.length).toBe(warnings + 1)
+    expect(electronStub.liveWindows().length).toBe(before)
+  })
+
+  it('the diff folder dialog opens a diff window only when confirmed', async () => {
+    const before = electronStub.liveWindows().length
+    electronStub.nextOpenDialogResult = { canceled: true, filePaths: [] }
+    await invoke('diff:open-dialog')
+    expect(electronStub.liveWindows().length).toBe(before)
+    try {
+      electronStub.nextOpenDialogResult = { canceled: false, filePaths: [repo.root] }
+      await invoke('diff:open-dialog')
+      expect(electronStub.liveWindows().length).toBe(before + 1)
+      ;(electronStub.liveWindows().at(-1) as StubBrowserWindow).close()
+    } finally {
+      electronStub.nextOpenDialogResult = { canceled: true, filePaths: [] }
+    }
+  })
+
+  it('diff channels load a comparison and read files, scoped to the diff window', async () => {
+    await invoke('diff:open-window', repo.root, { kind: 'uncommitted' })
+    const diffWindow = electronStub.liveWindows().at(-1) as StubBrowserWindow
+    const diffInvoke = (channel: string, ...args: unknown[]): Promise<unknown> =>
+      electronStub.invoke(diffWindow, channel, ...args)
+    try {
+      expect(await diffInvoke('diff:read-file', 'new', 'README.md')).toEqual({
+        kind: 'error',
+        message: 'No diff loaded'
+      })
+
+      repo.write('README.md', '# changed for diff\n')
+      const result = (await diffInvoke('diff:load', { kind: 'uncommitted' })) as DiffLoadResult
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.summary.files.map((f) => f.path)).toContain('README.md')
+      expect(await diffInvoke('diff:read-file', 'new', 'README.md')).toEqual({
+        kind: 'text',
+        text: '# changed for diff\n'
+      })
+
+      expect(await diffInvoke('diff:load', { kind: 'commit', ref: 'nope' })).toEqual({
+        ok: false,
+        error: 'Unknown revision: nope'
+      })
+      const commits = (await diffInvoke('diff:recent-commits', 5)) as unknown[]
+      expect(commits.length).toBeGreaterThan(0)
+
+      // a workspace window has no diff session to read from
+      await expect(invoke('diff:load', { kind: 'uncommitted' })).rejects.toThrow(
+        'Not a diff window'
+      )
+    } finally {
+      diffWindow.close()
+    }
+  })
+
+  it('a new diff window’s first load reuses the comparison prefetched at open', async () => {
+    await invoke('diff:open-window', repo.root, { kind: 'uncommitted' })
+    const diffWindow = electronStub.liveWindows().at(-1) as StubBrowserWindow
+    const diffInvoke = (channel: string, ...args: unknown[]): Promise<unknown> =>
+      electronStub.invoke(diffWindow, channel, ...args)
+    try {
+      // let the prefetch's git runs finish, then change the tree under it
+      await vi.waitFor(() => expect(liveProcesses().filter((p) => p.kind === 'git')).toEqual([]))
+      repo.write('after-open.txt', 'late\n')
+      const paths = async (): Promise<string[]> => {
+        const result = (await diffInvoke('diff:load', { kind: 'uncommitted' })) as DiffLoadResult
+        return result.ok ? result.summary.files.map((f) => f.path) : []
+      }
+      expect(await paths()).not.toContain('after-open.txt') // the prefetched snapshot
+      expect(await paths()).toContain('after-open.txt') // a refresh loads fresh
+    } finally {
+      diffWindow.close()
+      repo.rm('after-open.txt')
+    }
+  })
+
+  it('a first load for a different target than prefetched loads that target', async () => {
+    await invoke('diff:open-window', repo.root, { kind: 'uncommitted' })
+    const diffWindow = electronStub.liveWindows().at(-1) as StubBrowserWindow
+    try {
+      const result = (await electronStub.invoke(diffWindow, 'diff:load', {
+        kind: 'commit',
+        ref: 'HEAD'
+      })) as DiffLoadResult
+      expect(result.ok && result.summary.title).toBe('fixture: initial')
+    } finally {
+      diffWindow.close()
+    }
+  })
+
+  it('shell:open-external only opens web links', async () => {
+    await invoke('shell:open-external', 'https://github.com/acme/app/pull/1')
+    await invoke('shell:open-external', 'file:///etc/passwd')
+    expect(electronStub.openedUrls).toEqual(['https://github.com/acme/app/pull/1'])
   })
 
   it('clipboard and reveal channels reach the shell', async () => {

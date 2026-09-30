@@ -1,7 +1,17 @@
 import { join } from 'node:path'
 import { BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
+import { formatDiffTarget } from '../shared/diffTarget'
 import type { KeymapConfig } from '../shared/shortcuts'
-import type { PersistedWorkspaceState, SearchOptions } from '../shared/types'
+import type { DiffSource, PersistedWorkspaceState, SearchOptions } from '../shared/types'
+import {
+  type DiffSession,
+  disposeDiffSession,
+  loadDiff,
+  openPullRequests,
+  readDiffSide,
+  recentCommits,
+  repoRoot
+} from './diff'
 import { startGitMonitor } from './git'
 import { lspManagerFor } from './lsp/manager'
 import { rebuildApplicationMenu } from './menu'
@@ -29,10 +39,76 @@ import {
 } from './state'
 import { recordedSlowOps, startTask, timed } from './tasks'
 import { startWatching } from './watcher'
-import { openWorkspaceWindow, workspaceForWindow } from './windows'
+import {
+  openDiffWindow,
+  openWorkspaceWindow,
+  repoForDiffWindow,
+  workspaceForWindow
+} from './windows'
 
 // one active search per (window, searchId)
 const activeSearches = new Map<string, RunningSearch>()
+
+// diff windows: the loaded comparison, and a counter so a slow load that
+// finishes after a newer one can't overwrite it
+const diffSessions = new Map<number, DiffSession>()
+const diffLoadSeq = new Map<number, number>()
+
+type DiffLoadOutcome = Awaited<ReturnType<typeof loadDiff>> | { error: string }
+
+function runDiffLoad(repo: string, source: DiffSource): Promise<DiffLoadOutcome> {
+  return loadDiff(repo, source).catch((error: unknown) => ({
+    error: error instanceof Error ? error.message : String(error)
+  }))
+}
+
+/**
+ * A new diff window's first comparison starts loading in main the moment the
+ * window is created, while the renderer is still booting; the renderer's
+ * first diff:load for that same target then just picks up the result.
+ */
+const diffPrefetch = new Map<number, { target: string; outcome: Promise<DiffLoadOutcome> }>()
+
+/** Open a diff window for the repo containing `dir`; false if it isn't in one. */
+export async function openDiffForDirectory(
+  dir: string,
+  source: DiffSource = { kind: 'uncommitted' }
+): Promise<boolean> {
+  const root = await repoRoot(dir)
+  if (!root) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      message: 'Not a git repository',
+      detail: `${dir} isn't inside a git repository, so there's no diff to review.`
+    })
+    return false
+  }
+  const window = openDiffWindow(root, source)
+  const windowId = window.id
+  diffPrefetch.set(windowId, {
+    target: formatDiffTarget(source),
+    outcome: runDiffLoad(root, source)
+  })
+  window.once('closed', () => {
+    const session = diffSessions.get(windowId)
+    if (session) disposeDiffSession(session)
+    diffSessions.delete(windowId)
+    diffLoadSeq.delete(windowId)
+    const pending = diffPrefetch.get(windowId)
+    diffPrefetch.delete(windowId)
+    void pending?.outcome.then((o) => 'session' in o && disposeDiffSession(o.session))
+  })
+  return true
+}
+
+export async function showOpenDiffDialog(): Promise<void> {
+  const result = await dialog.showOpenDialog({
+    title: 'Review Diff',
+    buttonLabel: 'Review',
+    properties: ['openDirectory']
+  })
+  if (!result.canceled && result.filePaths[0]) await openDiffForDirectory(result.filePaths[0])
+}
 
 export async function showOpenFolderDialog(): Promise<void> {
   const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
@@ -40,6 +116,14 @@ export async function showOpenFolderDialog(): Promise<void> {
     openWorkspaceWindow(result.filePaths[0])
     void rebuildApplicationMenu()
   }
+}
+
+/** The repository owning this IPC event's diff window; throws for other windows. */
+function eventDiffRepo(event: Electron.IpcMainInvokeEvent): { windowId: number; repo: string } {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  const repo = window ? repoForDiffWindow(window.id) : null
+  if (!window || !repo) throw new Error('Not a diff window')
+  return { windowId: window.id, repo }
 }
 
 /** The workspace path owning this IPC event's window; throws for welcome windows. */
@@ -89,6 +173,51 @@ export function registerIpcHandlers(): void {
     (event, relPath: string, state: { cursorOffset: number; scrollTop: number }) =>
       saveFileViewState(eventWorkspace(event), relPath, state)
   )
+
+  // diff review windows (the repo is the window's own, never renderer-supplied)
+  ipcMain.handle('diff:open-dialog', () => showOpenDiffDialog())
+  ipcMain.handle('diff:open-window', async (_event, dir: string, source?: DiffSource) => {
+    await openDiffForDirectory(dir, source)
+  })
+  ipcMain.handle('diff:load', async (event, source: DiffSource) => {
+    const { windowId, repo } = eventDiffRepo(event)
+    const seq = (diffLoadSeq.get(windowId) ?? 0) + 1
+    diffLoadSeq.set(windowId, seq)
+
+    const prefetched = diffPrefetch.get(windowId)
+    diffPrefetch.delete(windowId)
+    const outcome =
+      prefetched?.target === formatDiffTarget(source)
+        ? await prefetched.outcome
+        : await runDiffLoad(repo, source)
+    if (prefetched && prefetched.target !== formatDiffTarget(source)) {
+      void prefetched.outcome.then((o) => 'session' in o && disposeDiffSession(o.session))
+    }
+
+    if ('error' in outcome) return { ok: false, error: outcome.error }
+    if (diffLoadSeq.get(windowId) === seq) {
+      const previous = diffSessions.get(windowId)
+      if (previous) disposeDiffSession(previous)
+      diffSessions.set(windowId, outcome.session)
+    } else {
+      disposeDiffSession(outcome.session) // superseded by a newer load
+    }
+    return { ok: true, summary: outcome.summary }
+  })
+  ipcMain.handle('diff:read-file', (event, side: 'old' | 'new', path: string) => {
+    const { windowId } = eventDiffRepo(event)
+    const session = diffSessions.get(windowId)
+    if (!session) return { kind: 'error', message: 'No diff loaded' }
+    return readDiffSide(session, side, path)
+  })
+  ipcMain.handle('diff:recent-commits', (event, limit: number) =>
+    recentCommits(eventDiffRepo(event).repo, limit)
+  )
+  ipcMain.handle('diff:open-prs', (event) => openPullRequests(eventDiffRepo(event).repo))
+  ipcMain.handle('shell:open-external', async (_event, url: string) => {
+    // only web links (PR pages); never file:// or custom schemes
+    if (/^https?:\/\//.test(url)) await shell.openExternal(url)
+  })
 
   // file watching + git monitoring (scoped to the window's workspace)
   ipcMain.handle('watch:start', async (event) => {

@@ -8,9 +8,11 @@ import {
   findWorkspaceWindow,
   isQuitting,
   markQuitting,
+  openDiffWindow,
   openWelcomeWindow,
   openWorkspaceWindow,
   persistAppState,
+  repoForDiffWindow,
   restoreSession,
   workspaceForWindow
 } from './windows'
@@ -63,6 +65,29 @@ describe('window management (spec 01)', () => {
     // welcome respawned in the closed handler
     expect(electronStub.liveWindows().length).toBe(before)
     expect(workspaceForWindow(workspace.id)).toBeNull()
+  })
+
+  it('diff windows stand alone: tagged, repo-scoped, never persisted, welcome kept', async () => {
+    const welcome = openWelcomeWindow() as unknown as StubBrowserWindow
+    const source = { kind: 'commit', ref: 'HEAD~1' } as const
+    const diff = openDiffWindow('/tmp/repo', source) as unknown as StubBrowserWindow
+    const second = openDiffWindow('/tmp/repo', { kind: 'uncommitted' })
+
+    expect(second).not.toBe(diff) // several comparisons of one repo can be open
+    expect(welcome.destroyed).toBe(false)
+    expect(
+      (diff.options.webPreferences as { additionalArguments: string[] }).additionalArguments
+    ).toEqual([`--argus-diff=${JSON.stringify({ repoPath: '/tmp/repo', source })}`])
+    expect(repoForDiffWindow(diff.id)).toBe('/tmp/repo')
+    expect(workspaceForWindow(diff.id)).toBeNull()
+
+    await persistAppState()
+    const state = await loadAppState()
+    expect(state?.windows.map((w) => w.workspacePath)).not.toContain('/tmp/repo')
+
+    diff.close()
+    second.close()
+    expect(repoForDiffWindow(diff.id)).toBeNull()
   })
 
   it('persistAppState records every workspace window with bounds', async () => {

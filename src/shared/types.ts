@@ -12,10 +12,80 @@ export type FileWriteResult = { ok: true } | { ok: false; message: string }
 // --- Windows & app state ---
 
 export interface WindowInitData {
-  kind: 'welcome' | 'workspace'
+  kind: 'welcome' | 'workspace' | 'diff'
   workspacePath: string | null
   /** the user's home directory, for `~` expansion in the renderer */
   homeDir: string
+  /** diff windows only: the repository and what to diff on open */
+  diff?: { repoPath: string; source: DiffSource }
+}
+
+// --- Diff review windows ---
+
+/** What a diff window compares (see src/shared/diffTarget.ts for parsing). */
+export type DiffSource =
+  /** HEAD vs the working tree, staged + unstaged + untracked */
+  | { kind: 'uncommitted' }
+  /** HEAD vs the index */
+  | { kind: 'staged' }
+  /** a commit vs its first parent */
+  | { kind: 'commit'; ref: string }
+  /** `base..head` (direct) or `base...head` (from their merge base) */
+  | { kind: 'range'; base: string; head: string; mergeBase: boolean }
+  /** a GitHub pull request, by number or URL (resolved through `gh`) */
+  | { kind: 'pr'; ref: string }
+
+export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed'
+
+export interface DiffFileEntry {
+  path: string
+  /** renames only: the path on the old side */
+  oldPath: string | null
+  status: DiffFileStatus
+  /** null for binary files */
+  additions: number | null
+  deletions: number | null
+  binary: boolean
+}
+
+export interface DiffSummary {
+  repoPath: string
+  repoName: string
+  /** headline: "Uncommitted changes", "Fix login (a1b2c3d)", "#42 Add export" */
+  title: string
+  /** secondary line: author/date, branch names… */
+  subtitle: string | null
+  /** PRs: the web URL */
+  url: string | null
+  /** short labels for the two sides, e.g. "HEAD" / "Working tree" */
+  baseLabel: string
+  headLabel: string
+  files: DiffFileEntry[]
+}
+
+export type DiffLoadResult = { ok: true; summary: DiffSummary } | { ok: false; error: string }
+
+export type DiffFileContent =
+  | { kind: 'text'; text: string }
+  | { kind: 'binary' }
+  | { kind: 'too-large' }
+  /** the side doesn't have this file (added/deleted) */
+  | { kind: 'absent' }
+  | { kind: 'error'; message: string }
+
+export interface DiffCommitOption {
+  sha: string
+  subject: string
+  author: string
+  /** unix seconds */
+  date: number
+}
+
+export interface DiffPrOption {
+  number: number
+  title: string
+  author: string
+  headRefName: string
 }
 
 export interface RecentWorkspaceEntry {
@@ -405,6 +475,15 @@ export interface ArgusApi {
   fileExists(absPath: string): Promise<boolean>
   readFileAbsolute(absPath: string): Promise<FileReadResult>
   writeFileAbsolute(absPath: string, content: string): Promise<FileWriteResult>
+
+  // diff review windows (scoped to the window's repository)
+  openDiffDialog(): Promise<void>
+  openDiffWindow(repoPath: string, source?: DiffSource): Promise<void>
+  loadDiff(source: DiffSource): Promise<DiffLoadResult>
+  readDiffFile(side: 'old' | 'new', path: string): Promise<DiffFileContent>
+  diffRecentCommits(limit: number): Promise<DiffCommitOption[]>
+  diffOpenPullRequests(): Promise<{ ok: true; prs: DiffPrOption[] } | { ok: false; error: string }>
+  openExternal(url: string): Promise<void>
 
   // global search (streams batches via onSearchProgress)
   startSearch(searchId: number, options: SearchOptions): Promise<void>

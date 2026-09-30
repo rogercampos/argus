@@ -23,13 +23,14 @@ export function Welcome(): React.JSX.Element {
 
         <div className="flex w-full flex-col gap-2">
           <SectionLabel>Start</SectionLabel>
-          <Button
-            variant="secondary"
-            className="self-start"
-            onClick={() => void window.api.openFolderDialog()}
-          >
-            Open Folder…
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => void window.api.openFolderDialog()}>
+              Open Folder…
+            </Button>
+            <Button variant="ghost" onClick={() => void window.api.openDiffDialog()}>
+              Review Diff…
+            </Button>
+          </div>
         </div>
 
         {recents.length > 0 && (

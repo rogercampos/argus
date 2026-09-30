@@ -1,8 +1,9 @@
-import { existsSync, statSync } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { app } from 'electron'
+import { parseDiffTarget } from '../shared/diffTarget'
 import { reportCrash } from './crashReporter'
-import { registerIpcHandlers } from './ipc'
+import { openDiffForDirectory, registerIpcHandlers } from './ipc'
+import { parseLaunchArgs } from './launchArgs'
 import { rebuildApplicationMenu } from './menu'
 import { setSpawnErrorListener } from './procRegistry'
 import { startProcStats } from './procStats'
@@ -86,14 +87,13 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', (_event, argv) => {
-    // A second launch routes here; open a folder argument if present.
-    // Electron's own args ('.', the app path) must not count as folders.
-    const dirArg = argv
-      .slice(1)
-      .find((a) => a.startsWith('/') && !a.startsWith('--') && existsSync(a))
-    if (dirArg && statSync(dirArg).isDirectory()) openWorkspaceWindow(dirArg)
-    else openWelcomeWindow()
+  app.on('second-instance', (_event, argv, workingDirectory) => {
+    // A second launch routes here: open what it asked for, else welcome
+    const request = parseLaunchArgs(argv, workingDirectory, app.getAppPath())
+    if (request.kind === 'workspace') openWorkspaceWindow(request.dir)
+    else if (request.kind === 'diff') {
+      void openDiffForDirectory(request.dir, parseDiffTarget(request.target))
+    } else openWelcomeWindow()
   })
 
   app.whenReady().then(async () => {
@@ -107,7 +107,23 @@ if (!gotLock) {
     registerIpcHandlers()
     startProcStats()
     await rebuildApplicationMenu()
-    await restoreSession()
+    // A folder or `--diff` on the command line opens just that, skipping
+    // session restore (ARGUS_DIFF is the dev equivalent: ARGUS_DIFF=~/code/repo pnpm dev)
+    const launch = process.env.ARGUS_DIFF
+      ? {
+          kind: 'diff' as const,
+          dir: process.env.ARGUS_DIFF,
+          target: process.env.ARGUS_DIFF_TARGET ?? ''
+        }
+      : parseLaunchArgs(process.argv, process.cwd(), app.getAppPath())
+    if (launch.kind === 'diff') {
+      const opened = await openDiffForDirectory(launch.dir, parseDiffTarget(launch.target))
+      if (!opened) openWelcomeWindow()
+    } else if (launch.kind === 'workspace') {
+      openWorkspaceWindow(launch.dir)
+    } else {
+      await restoreSession()
+    }
   })
 
   // persistAppState writes asynchronously; hold the quit until it lands once,

@@ -22,6 +22,15 @@ function makeListener<T>(channel: string) {
 
 function parseWindowInit(): WindowInitData {
   const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? ''
+  const diffArg = process.argv.find((a) => a.startsWith('--argus-diff='))
+  if (diffArg) {
+    return {
+      kind: 'diff',
+      workspacePath: null,
+      homeDir,
+      diff: JSON.parse(diffArg.slice('--argus-diff='.length))
+    }
+  }
   const workspaceArg = process.argv.find((a) => a.startsWith('--argus-workspace='))
   if (workspaceArg) {
     return {
@@ -111,7 +120,15 @@ const api: ArgusApi = {
 
   fileExists: (absPath) => ipcRenderer.invoke('file:exists', absPath),
   readFileAbsolute: (absPath) => ipcRenderer.invoke('file:read-abs', absPath),
-  writeFileAbsolute: (absPath, content) => ipcRenderer.invoke('file:write-abs', absPath, content)
+  writeFileAbsolute: (absPath, content) => ipcRenderer.invoke('file:write-abs', absPath, content),
+
+  openDiffDialog: () => ipcRenderer.invoke('diff:open-dialog'),
+  openDiffWindow: (repoPath, source) => ipcRenderer.invoke('diff:open-window', repoPath, source),
+  loadDiff: (source) => ipcRenderer.invoke('diff:load', source),
+  readDiffFile: (side, path) => ipcRenderer.invoke('diff:read-file', side, path),
+  diffRecentCommits: (limit) => ipcRenderer.invoke('diff:recent-commits', limit),
+  diffOpenPullRequests: () => ipcRenderer.invoke('diff:open-prs'),
+  openExternal: (url) => ipcRenderer.invoke('shell:open-external', url)
 }
 
 // Only the typed `api` is exposed — the full electron/ipcRenderer surface is

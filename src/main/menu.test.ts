@@ -102,6 +102,27 @@ describe('application menu (spec 02)', () => {
     }
   })
 
+  it('Review Diff warns when the focused workspace isn’t a git repo', async () => {
+    const focused = new StubBrowserWindow()
+    electronStub.setFocusedWindow(focused)
+    const { openWorkspaceWindow } = await import('./windows')
+    const nonRepo = mkdtempSync(join(tmpdir(), 'argus-menu-nonrepo-'))
+    try {
+      const workspace = openWorkspaceWindow(nonRepo) as unknown as StubBrowserWindow
+      electronStub.setFocusedWindow(workspace)
+      const before = electronStub.messageBoxes.length
+      walk(electronStub.applicationMenu()?.items ?? [], (item) => {
+        if (item.label === 'Review Diff…') item.click?.()
+      })
+      // (the click-everything test above may still have its own warning in flight)
+      await vi.waitFor(() => expect(electronStub.messageBoxes.length).toBeGreaterThan(before))
+      expect(electronStub.messageBoxes.at(-1)).toBe('Not a git repository')
+      workspace.close()
+    } finally {
+      rmSync(nonRepo, { recursive: true, force: true })
+    }
+  })
+
   it('menu commands are lost without a focused window (no crash)', () => {
     electronStub.setFocusedWindow(null)
     const menu = electronStub.applicationMenu()

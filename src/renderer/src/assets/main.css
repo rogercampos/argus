@@ -35,6 +35,11 @@
   --color-git-conflicted: #e06c75;
   --color-git-ignored: #d19a66;
   --color-excluded: #e06c75;
+  /* Diff review: row tint for changed lines, stronger for the changed text */
+  --color-diff-added: rgba(152, 195, 121, 0.1);
+  --color-diff-added-strong: rgba(152, 195, 121, 0.2);
+  --color-diff-deleted: rgba(255, 82, 102, 0.1);
+  --color-diff-deleted-strong: rgba(255, 82, 102, 0.22);
   /* External-file tab tint: muted warm, on-palette (was a harsh red-brown) */
   --color-external: #3a2f23;
 
@@ -233,6 +238,25 @@ body {
    the rendered content stands out from its markup. */
 .tsh-markup-mark {
   color: var(--color-fg-dim);
+}
+
+/* Diff review: whole-file adds/deletes have no counterpart to diff against,
+   so every line gets the added/deleted tint and gutter bar. */
+.diff-all-added .cm-line {
+  background-color: var(--color-diff-added);
+}
+.diff-all-deleted .cm-line {
+  background-color: var(--color-diff-deleted);
+}
+.diff-all-added .cm-gutters {
+  border-right: 3px solid var(--color-git-added) !important;
+}
+.diff-all-deleted .cm-gutters {
+  border-right: 3px solid var(--color-git-deleted) !important;
+}
+/* the diff body is selectable code even though the chrome isn't */
+.diff-body {
+  user-select: text;
 }
 
 /* Cmd+hover go-to-definition affordance */

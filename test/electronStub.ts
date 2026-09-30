@@ -177,12 +177,20 @@ export const shell = {
   showItemInFolder: (path: string): void => {
     electronStub.revealedPaths.push(path)
   },
-  openPath: (): Promise<string> => Promise.resolve('')
+  openPath: (): Promise<string> => Promise.resolve(''),
+  openExternal: (url: string): Promise<void> => {
+    electronStub.openedUrls.push(url)
+    return Promise.resolve()
+  }
 }
 
 export const dialog = {
   showOpenDialog: (): Promise<{ canceled: boolean; filePaths: string[] }> =>
-    Promise.resolve(electronStub.nextOpenDialogResult)
+    Promise.resolve(electronStub.nextOpenDialogResult),
+  showMessageBox: (options: { message: string }): Promise<{ response: number }> => {
+    electronStub.messageBoxes.push(options.message)
+    return Promise.resolve({ response: 0 })
+  }
 }
 
 export const BrowserWindow = StubBrowserWindow
@@ -209,7 +217,10 @@ export const electronStub = {
   },
   clipboardWrites: [] as string[],
   revealedPaths: [] as string[],
+  openedUrls: [] as string[],
   nextOpenDialogResult: { canceled: true, filePaths: [] as string[] },
+  /** messages shown via dialog.showMessageBox */
+  messageBoxes: [] as string[],
   quitCalls: 0,
   userDataDir
 }

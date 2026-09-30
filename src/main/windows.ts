@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import { app, BrowserWindow } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import type { AppState, WindowBounds } from '../shared/types'
+import type { AppState, DiffSource, WindowBounds } from '../shared/types'
 import { loadAppState, saveAppState, touchRecentWorkspace } from './state'
 
 /**
@@ -11,6 +11,8 @@ import { loadAppState, saveAppState, touchRecentWorkspace } from './state'
  */
 
 const workspaceWindows = new Map<number, { window: BrowserWindow; workspacePath: string }>()
+/** Diff review windows: standalone, repo-scoped, never part of the session. */
+const diffWindows = new Map<number, { window: BrowserWindow; repoPath: string }>()
 let welcomeWindow: BrowserWindow | null = null
 let quitting = false
 
@@ -31,6 +33,10 @@ export function markQuitting(): void {
 
 export function workspaceForWindow(windowId: number): string | null {
   return workspaceWindows.get(windowId)?.workspacePath ?? null
+}
+
+export function repoForDiffWindow(windowId: number): string | null {
+  return diffWindows.get(windowId)?.repoPath ?? null
 }
 
 export function findWorkspaceWindow(workspacePath: string): BrowserWindow | null {
@@ -115,7 +121,7 @@ export function openWorkspaceWindow(
     workspaceWindows.delete(window.id)
     if (!quitting) {
       persistAppStateDebounced()
-      if (workspaceWindows.size === 0) openWelcomeWindow()
+      if (workspaceWindows.size === 0 && diffWindows.size === 0) openWelcomeWindow()
     }
   })
 
@@ -155,10 +161,48 @@ export function openWelcomeWindow(): BrowserWindow {
   })
   window.on('closed', () => {
     welcomeWindow = null
-    // Closing the welcome window quits the app (spec 01)
-    if (!quitting && workspaceWindows.size === 0) {
+    // Closing the welcome window quits the app (spec 01) — unless diff
+    // windows are still open; those keep the app alive on their own
+    if (!quitting && workspaceWindows.size === 0 && diffWindows.size === 0) {
       app.quit()
     }
+  })
+
+  loadRenderer(window)
+  return window
+}
+
+/**
+ * A diff review window for `repoPath` (already resolved to the repo's top
+ * level). Several can be open at once, even for the same repo — each is its
+ * own comparison. They don't close the welcome window and aren't restored.
+ */
+export function openDiffWindow(repoPath: string, source: DiffSource): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 600,
+    minHeight: 400,
+    show: false,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 12, y: 12 },
+    backgroundColor: '#1a2548',
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      additionalArguments: [`--argus-diff=${JSON.stringify({ repoPath, source })}`],
+      backgroundThrottling: !HIDE_WINDOWS
+    }
+  })
+
+  diffWindows.set(window.id, { window, repoPath })
+  window.on('ready-to-show', () => {
+    if (!HIDE_WINDOWS) window.show()
+  })
+  window.on('closed', () => {
+    diffWindows.delete(window.id)
+    // the last window of any kind closing quits via window-all-closed
   })
 
   loadRenderer(window)

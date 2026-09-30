@@ -2,6 +2,13 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  type DiffSession,
+  disposeDiffSession,
+  loadDiff,
+  readDiffSide,
+  recentCommits
+} from '../src/main/diff'
+import {
   fileExists,
   gitStatus,
   listFiles,
@@ -78,6 +85,9 @@ export interface RecordedCalls {
   lspDidOpen: string[]
   lspDidChange: string[]
   lspDidClose: string[]
+  openedDiffWindows: string[]
+  openDiffDialogs: number
+  openedExternalUrls: string[]
 }
 
 /** Canned LSP responses (stands in for the language-server external process). */
@@ -123,7 +133,10 @@ export function createTestApi(workspacePath: string): TestApi {
     watchStarts: 0,
     lspDidOpen: [],
     lspDidChange: [],
-    lspDidClose: []
+    lspDidClose: [],
+    openedDiffWindows: [],
+    openDiffDialogs: 0,
+    openedExternalUrls: []
   }
 
   const lsp: CannedLsp = { hover: null, definitions: [], completions: [], symbols: [] }
@@ -141,6 +154,7 @@ export function createTestApi(workspacePath: string): TestApi {
   const searchProgress = new Channel<[number, SearchProgress]>()
 
   const activeSearches = new Map<number, RunningSearch>()
+  let diffSession: DiffSession | null = null
 
   const api: ArgusApi = {
     windowInit: { kind: 'workspace', workspacePath, homeDir: process.env.HOME ?? '' },
@@ -227,7 +241,33 @@ export function createTestApi(workspacePath: string): TestApi {
       activeSearches.delete(searchId)
     },
     onSearchProgress: (handler) => searchProgress.subscribe(handler),
-    replaceAll: (options, replacement) => replaceAll(workspacePath, options, replacement, () => {})
+    replaceAll: (options, replacement) => replaceAll(workspacePath, options, replacement, () => {}),
+
+    // diff review — the real git-backed implementation over the fixture repo
+    openDiffDialog: async () => {
+      calls.openDiffDialogs += 1
+    },
+    openDiffWindow: async (repoPath) => {
+      calls.openedDiffWindows.push(repoPath)
+    },
+    loadDiff: async (source) => {
+      try {
+        const { summary, session } = await loadDiff(workspacePath, source)
+        if (diffSession) disposeDiffSession(diffSession)
+        diffSession = session
+        return { ok: true, summary }
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      }
+    },
+    readDiffFile: async (side, path) =>
+      diffSession ? readDiffSide(diffSession, side, path) : { kind: 'error', message: 'No diff' },
+    diffRecentCommits: (limit) => recentCommits(workspacePath, limit),
+    // gh is an external service; tests see it as unavailable
+    diffOpenPullRequests: async () => ({ ok: false, error: 'gh unavailable in tests' }),
+    openExternal: async (url) => {
+      calls.openedExternalUrls.push(url)
+    }
   }
 
   return {
@@ -249,6 +289,7 @@ export function createTestApi(workspacePath: string): TestApi {
     dispose: () => {
       for (const search of activeSearches.values()) search.cancel()
       activeSearches.clear()
+      if (diffSession) disposeDiffSession(diffSession)
     }
   }
 }
