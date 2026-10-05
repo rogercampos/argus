@@ -1,5 +1,6 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { app } from 'electron'
+import icon from '../../resources/icon.png?asset'
 import { parseDiffTarget } from '../shared/diffTarget'
 import { reportCrash } from './crashReporter'
 import { openDiffForDirectory, registerIpcHandlers } from './ipc'
@@ -99,6 +100,9 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     electronApp.setAppUserModelId('com.argus')
     initStateDir(app.getPath('userData'))
+    // Packaged builds get the dock icon from build/icon.icns; dev runs the
+    // stock Electron binary, so set it at runtime
+    if (!app.isPackaged) app.dock?.setIcon(icon)
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)

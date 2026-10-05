@@ -82,6 +82,9 @@ codesign --force --deep --sign - "$TARGET" 2>/dev/null
 
 xattr -cr "$TARGET"
 
+# Finder and the Dock cache app icons; bump the bundle so a new icon shows up.
+touch "$TARGET"
+
 echo "✓ Installed $APP_NAME ($(git rev-parse --short HEAD))"
 
 if [[ $OPEN -eq 1 ]]; then

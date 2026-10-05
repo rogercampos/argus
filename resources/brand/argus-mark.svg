@@ -1,0 +1,26 @@
+<!-- Argus mark: the eyespot without the app-icon background. Regenerate PNGs with scripts/generate-icons.sh -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="157 160 710 710" width="1024" height="1024">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6CF6B"/>
+      <stop offset="1" stop-color="#D98E2B"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2FE0C5"/>
+      <stop offset="1" stop-color="#0E9AA8"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.55" r="0.6">
+      <stop offset="0" stop-color="#2A2F8F"/>
+      <stop offset="1" stop-color="#141757"/>
+    </radialGradient>
+  
+    <mask id="ring">
+      <rect x="0" y="0" width="1024" height="1024" fill="#fff"/>
+      <path d="M512,270 C772.4,376.0 722.0,800 512,800 C302.0,800 251.60000000000002,376.0 512,270 Z" fill="#000"/>
+    </mask>
+  </defs>
+  <path d="M512,200 C834.4,326.0 772.0,830 512,830 C252.0,830 189.60000000000002,326.0 512,200 Z" fill="url(#gold)" mask="url(#ring)"/>
+  <path d="M512,300 C747.6,397.0 702.0,785 512,785 C322.0,785 276.4,397.0 512,300 Z" fill="url(#teal)"/>
+  <path d="M512,420 C683.6,501.6 642.0,760 512,760 C382.0,760 340.4,501.6 512,420 Z" fill="url(#core)"/>
+  <rect x="490" y="520" width="44" height="170" rx="22" fill="#F7F3E8"/>
+</svg>
